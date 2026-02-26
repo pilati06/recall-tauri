@@ -8,7 +8,8 @@
     "build": "npm run build:sidecar -- --release && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:sidecar": "node scripts/build-sidecar.js"
+    "build:sidecar": "node scripts/build-sidecar.js",
+    "version": "node -e \"const fs=require('fs'); const c=JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json')); c.version=process.env.npm_package_version; fs.writeFileSync('./src-tauri/tauri.conf.json', JSON.stringify(c, null, 2));\" && git add src-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
