@@ -1,0 +1,108 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* }
+
+main = { SOI ~ contract ~ EOI }
+
+contract = { conflict ~ clause ~ (END ~ clause)* ~ END }
+
+cfGlobal_block = { GLOBAL ~ "{" ~ cfPair ~ ("," ~ cfPair)* ~ "}" ~ END }
+cfRel_block    = { RELATIVIZED ~ "{" ~ cfPair ~ ("," ~ cfPair)* ~ "}" ~ END }
+
+conflict_body = {
+     (cfGlobal_block ~ cfRel_block?) |
+     (cfRel_block ~ cfGlobal_block?) |
+     ""
+}
+
+conflict = { (CONFLICT ~ "{" ~ conflict_body ~ "}" ~ END)? }
+
+cfPair = { "(" ~ ID ~ "," ~ ID ~ ")" }
+
+clause = { clause_term ~ (AND ~ clause_term)* }
+clause_term = {
+    co |
+    cp |
+    cf |
+    cd |
+    T |
+    F |
+    "(" ~ clause ~ ")"
+}
+
+penalty = { (OPEN_PTY ~ clause ~ CLOSE_PTY)? }
+
+cd = { rel ~ OPEN_DYN ~ beta ~ CLOSE_DYN ~ (OPEN_EXP ~ clause ~ CLOSE_EXP)? }
+
+co = { co_atom ~ (XOR ~ co_atom)* }
+co_atom = { rel ~ DEO_O ~ OPEN_EXP ~ alpha ~ CLOSE_EXP ~ penalty }
+
+cp = { cp_atom ~ (XOR ~ cp_atom)* }
+cp_atom = { rel ~ DEO_P ~ OPEN_EXP ~ alpha ~ CLOSE_EXP }
+
+cf = { cf_term ~ (OR ~ cf_term)* }
+cf_term = { cd | cf_atom }
+cf_atom = { rel ~ DEO_F ~ OPEN_EXP ~ alpha ~ CLOSE_EXP ~ penalty }
+
+rel = {
+    (OPEN_REL ~ ID ~ SEP_REL ~ ID ~ CLOSE_REL) |
+    (OPEN_REL ~ ID ~ CLOSE_REL) |
+    ""
+}
+
+alpha = { alpha_atom ~ (op ~ alpha_atom)* }
+alpha_atom = { SKIP | VIOLATION | ID | "(" ~ alpha ~ ")" }
+
+beta = { beta_term ~ (op ~ beta_term)* }
+beta_term = {
+    UN_OP_NEG ~ "(" ~ ID ~ ")" ~ UN_OP_IT |
+    "(" ~ beta ~ ")" ~ UN_OP_IT |
+    ID ~ UN_OP_IT |
+    SKIP ~ UN_OP_IT |
+    VIOLATION ~ UN_OP_IT |
+    
+    ID ~ "." ~ beta |
+    UN_OP_NEG ~ "(" ~ beta ~ ")" |
+    UN_OP_NEG ~ ID |
+    "(" ~ beta ~ ")" |
+    ID |
+    SKIP |
+    VIOLATION
+}
+
+op = { OP_CHOICE | OP_SEQ | OP_CONC }
+
+CONFLICT    = @{ "conflict" }
+GLOBAL      = @{ "global" }
+RELATIVIZED = @{ "relativized" }
+OPEN_PTY    = @{ "_/" }
+CLOSE_PTY   = @{ "/_" }
+OPEN_REL    = @{ "{" }
+SEP_REL     = @{ "," }
+CLOSE_REL   = @{ "}" }
+OPEN_EXP    = @{ "(" }
+CLOSE_EXP   = @{ ")" }
+OPEN_DYN    = @{ "[" }
+CLOSE_DYN   = @{ "]" }
+
+DEO_O       = @{ "O" | "_Obliged" }
+DEO_P       = @{ "P" | "_Permitted" }
+DEO_F       = @{ "F" | "_Prohibited" }
+OP_CHOICE   = @{ "+" }
+OP_SEQ      = @{ "." }
+OP_CONC     = @{ "&" }
+UN_OP_IT    = @{ "*" }
+UN_OP_NEG   = @{ "!" }
+AND         = @{ "^" | "AND" }
+OR          = @{ "|" | "OR" }
+XOR         = @{ "-" | "XOR" }
+T           = @{ "true" }
+F           = @{ "false" }
+END         = @{ ";" }
+SKIP        = @{ "1" }
+VIOLATION   = @{ "0" }
+
+KEYWORD = _{
+    "conflict" | "global" | "relativized" | "true" | "false" |
+    "AND" | "OR" | "XOR" | "_Obliged" | "_Permitted" | "_Prohibited"
+}
+ID = @{ !KEYWORD ~ ('a'..'z' | 'A'..'Z') ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
