@@ -8,25 +8,29 @@ import { BatchAnalysisPage } from "./pages/BatchAnalysisPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { DocumentationPage } from "./pages/DocumentationPage";
 
+import { AnalysisProvider } from "./context/AnalysisContext";
+
 function App() {
   const [currentPage, setCurrentPage] = useState("info");
 
   return (
-    <div className="app-container">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-      
-      <main className="main-content">
-        {currentPage === "info" ? (
-          <InfoPage onPageChange={setCurrentPage} />
-        ) : currentPage === "batch" ? (
-          <BatchAnalysisPage />
-        ) : currentPage === "documentation" ? (
-          <DocumentationPage />
-        ) : (
-          <AnalysisPage />
-        )}
-      </main>
-    </div>
+    <AnalysisProvider>
+      <div className="app-container">
+        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+        
+        <main className="main-content">
+          {currentPage === "info" ? (
+            <InfoPage onPageChange={setCurrentPage} />
+          ) : currentPage === "batch" ? (
+            <BatchAnalysisPage />
+          ) : currentPage === "documentation" ? (
+            <DocumentationPage />
+          ) : (
+            <AnalysisPage />
+          )}
+        </main>
+      </div>
+    </AnalysisProvider>
   );
 }
 

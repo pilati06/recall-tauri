@@ -154,7 +154,37 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
         .getting-started ol {
           line-height: 1.8;
         }
+        @media (max-width: 768px) {
+          .info-page {
+            padding: 1rem;
+          }
+          .subtitle {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+          }
+          .nav-card {
+            padding: 1.2rem;
+          }
+          .nav-icon {
+            padding: 0.8rem;
+            margin-right: 1rem;
+          }
+          .nav-icon svg {
+            width: 32px;
+            height: 32px;
+          }
+          .nav-info h3 {
+            font-size: 1.1rem;
+          }
+          .nav-info p {
+            font-size: 0.85rem;
+          }
+          h1 {
+            font-size: 1.8rem;
+          }
+        }
       `}</style>
+
     </div>
   );
 }

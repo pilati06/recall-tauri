@@ -1,23 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { listen } from "@tauri-apps/api/event";
-
-interface LogMessage {
-  log_type: string;
-  message: string;
-  date: string;
-}
+import { useAnalysisContext } from "../context/AnalysisContext";
 
 export function AnalysisPage() {
+  const { singleAnalysis } = useAnalysisContext();
+  const {
+    resultMsg, setResultMsg,
+    filePath, setFilePath,
+    logs, setLogs,
+    pastedText, setPastedText,
+    logsVisible, setLogsVisible,
+    isAnalyzing, setIsAnalyzing,
+  } = singleAnalysis;
+
   const [selectedMode] = useState('Default');
-
-  const [resultMsg, setResultMsg] = useState("");
-  const [filePath, setFilePath] = useState("");
-  const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [pastedText, setPastedText] = useState("");
-
-  const [logsVisible, setLogsVisible] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,25 +23,7 @@ export function AnalysisPage() {
     }
   }, [logs, logsVisible]);
 
-  useEffect(() => {
-    const unlisten = listen<LogMessage>("log-message", (event) => {
-      console.log("Frontend received log:", event.payload); // DEBUG
-      setLogs((prevLogs) => [...prevLogs, event.payload]);
-    });
-
-    const unlistenMemory = listen<string>("memory-overflow", (event) => {
-      setResultMsg(
-        `⚠️ MEMORY OVERFLOW\n\nThe analysis was terminated because memory usage exceeded the safe limit.\n\n${event.payload}`
-      );
-    });
-
-    return () => {
-      unlisten.then((f) => f());
-      unlistenMemory.then((f) => f());
-    };
-  }, []);
-
-  async function selectAndProcessFile() {
+  async function selectFile() {
     try {
       const selectedPath = await open({
         title: "Selecione o arquivo para processar",
@@ -55,47 +34,72 @@ export function AnalysisPage() {
         const pathString = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
         setFilePath(pathString);
         setLogs([]); // Clear previous logs
-        setResultMsg("Processing Contract...");
+        setResultMsg("");
 
-        const response = await invoke("process_file", { 
-          path: pathString, 
-          mode: selectedMode 
-        });
-
-        setResultMsg(String(response) || "Analysis completed (no output)");
-      } else {
-        setFilePath("");
-        setResultMsg("No file selected.");
+        // Load file content into textarea
+        try {
+          const content = await invoke("read_file", { path: pathString });
+          setPastedText(String(content));
+          setResultMsg("File loaded. Click 'Run Analysis' to start.");
+        } catch (readError) {
+          console.error("Erro ao ler conteúdo do arquivo:", readError);
+          setResultMsg("Error loading file content.");
+        }
       }
     } catch (error) {
-      console.error("Erro ao selecionar ou processar arquivo:", error);
-      const errorStr = String(error);
-      setResultMsg(errorStr || "An unknown error occurred during analysis.");
+      console.error("Erro ao selecionar arquivo:", error);
+      setResultMsg("Error selecting file.");
     }
   }
 
-  async function analyzePastedText() {
+  async function runAnalysis() {
     if (!pastedText.trim()) {
-      setResultMsg("Please paste a contract before analyzing.");
+      setResultMsg("Please load or paste a contract before analyzing.");
       return;
     }
 
+    setIsAnalyzing(true);
+    setLogs([]); 
+    setResultMsg("Processing Contract...");
+
     try {
-      setFilePath(""); // Clear file path if analyzing pasted text
-      setLogs([]); 
-      setResultMsg("Processing Pasted Contract...");
+      let response;
+      if (filePath) {
+        response = await invoke("process_file", { 
+          path: filePath, 
+          mode: selectedMode 
+        });
+      } else {
+        response = await invoke("analyze_text", { 
+          text: pastedText, 
+          mode: selectedMode 
+        });
+      }
 
-      const response = await invoke("analyze_text", { 
-        text: pastedText, 
-        mode: selectedMode 
-      });
-
-      setResultMsg(String(response) || "Analysis completed (no output)");
+      setResultMsg(String(response) || "Analysis completed.");
     } catch (error) {
-      console.error("Erro ao analisar texto colado:", error);
+      console.error("Erro ao analisar contrato:", error);
       const errorStr = String(error);
       setResultMsg(errorStr || "An unknown error occurred during analysis.");
+    } finally {
+      setIsAnalyzing(false);
     }
+  }
+
+  async function stopAnalysis() {
+    try {
+      await invoke("stop_analysis");
+      setResultMsg("Analysis stopped by user.");
+    } catch (error) {
+      console.error("Failed to stop analysis:", error);
+    }
+  }
+
+  function resetAnalysis() {
+    setPastedText("");
+    setFilePath("");
+    setResultMsg("");
+    setLogs([]);
   }
 
   return (
@@ -103,24 +107,6 @@ export function AnalysisPage() {
       <h1>Analysis Tool</h1>
       <p className="subtitle">High-performance analysis tool for RCL files.</p>
       
-      {/* <div className="mode-selector">
-        {modes.map(mode => (
-          <label key={mode}>
-            <input
-              type="radio"
-              value={mode}
-              checked={selectedMode === mode}
-              onChange={handleChange}
-            />
-            {mode}
-          </label>
-        ))}
-      </div> */}
-
-      {/* <div className="row" style={{ marginBottom: '2rem' }}>
-        
-      </div> */}
-
       <div className="pasted-analysis-section" style={{ 
         marginBottom: '2rem', 
         padding: '1.5rem', 
@@ -131,11 +117,15 @@ export function AnalysisPage() {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Paste Contract</h3>
+        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Contract</h3>
         <textarea
           placeholder="Paste your .rcl contract content here..."
           value={pastedText}
-          onChange={(e) => setPastedText(e.target.value)}
+          onChange={(e) => {
+            setPastedText(e.target.value);
+            if (filePath) setFilePath(""); // Clear path if user edits text
+          }}
+          disabled={isAnalyzing}
           style={{
             width: '100%',
             height: '200px',
@@ -148,28 +138,39 @@ export function AnalysisPage() {
             resize: 'vertical',
             fontSize: '0.9rem',
             outline: 'none',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            opacity: isAnalyzing ? 0.7 : 1
           }}
         />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-          <button onClick={selectAndProcessFile} 
+        <div className="button-row">
+          <button onClick={selectFile} 
+          disabled={isAnalyzing}
           style={{
-              alignSelf: 'center',
               padding: '0.8rem 2rem',
+              opacity: isAnalyzing ? 0.5 : 1,
+              cursor: isAnalyzing ? 'not-allowed' : 'pointer'
             }}>
-            Select and Process File
+            Select File
           </button>
           <button 
-            onClick={analyzePastedText}
-            disabled={!pastedText.trim()}
+            onClick={runAnalysis}
+            disabled={!pastedText.trim() || isAnalyzing}
             style={{
-              alignSelf: 'center',
               padding: '0.8rem 2rem',
-              opacity: pastedText.trim() ? 1 : 0.5,
-              cursor: pastedText.trim() ? 'pointer' : 'not-allowed'
+              opacity: (pastedText.trim() && !isAnalyzing) ? 1 : 0.5,
+              cursor: (pastedText.trim() && !isAnalyzing) ? 'pointer' : 'not-allowed'
             }}
           >
-            Analyze Pasted Contract
+            {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+          </button>
+          <button 
+            onClick={isAnalyzing ? stopAnalysis : resetAnalysis}
+            className="clear-btn"
+            style={{
+              padding: '0.8rem 2rem',
+            }}
+          >
+            {isAnalyzing ? 'Stop Analysis' : 'Clear'}
           </button>
         </div>
       </div>
@@ -254,6 +255,20 @@ export function AnalysisPage() {
           font-size: 1.2rem;
           color: #646cff;
           margin-bottom: 3rem;
+        }
+        .button-row {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+        }
+        .clear-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #f87171;
+        }
+        .clear-btn:hover {
+          background: rgba(248, 113, 113, 0.1);
+          border-color: rgba(248, 113, 113, 0.2);
         }
       `}</style>
     </div>

@@ -124,12 +124,8 @@ pre {
 }
 
 @media (max-width: 768px) {
-  .app-container {
-    flex-direction: column;
-  }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    flex-direction: row;
+  .main-content {
+    padding: 1rem;
+    padding-top: 4rem; /* Space for the floating hamburger button */
   }
 }

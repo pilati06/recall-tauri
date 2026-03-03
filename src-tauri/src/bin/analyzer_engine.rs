@@ -91,8 +91,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if config.is_test() {
         println!("RESULT_CSV:{}", data);
-    } else {
-        println!("Analysis completed.");
     }
 
     Ok(())

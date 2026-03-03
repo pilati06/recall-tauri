@@ -10,15 +10,20 @@ use model::actions::*;
 use model::automata::*;
 use model::contracts::*;
 use utils::*;
-//use rayon::ThreadPoolBuilder;
-
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
 use serde::Serialize;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
+use std::sync::Mutex;
+use tauri_plugin_shell::process::CommandChild;
+use std::collections::HashMap;
+
+pub struct AnalysisState {
+    pub child_processes: Mutex<HashMap<String, CommandChild>>,
+}
 
 #[derive(Clone, Serialize)]
 struct BatchProgress {
@@ -146,13 +151,21 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
         args.push("-t".to_string());
     }
 
-    let (mut rx, _child) = sidecar
+    let (mut rx, child) = sidecar
         .args(args)
         .spawn()
         .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
+    // Store the child process for the single analysis
+    {
+        let state = app_handle.state::<AnalysisState>();
+        let mut processes = state.child_processes.lock().unwrap();
+        processes.insert("single_analysis".to_string(), child);
+    }
+
     let stdout_acc = Arc::new(Mutex::new(String::new()));
     let stderr_acc = Arc::new(Mutex::new(String::new()));
+    
     let stdout_acc_clone = stdout_acc.clone();
     let stderr_acc_clone = stderr_acc.clone();
     let app_clone = app_handle.clone();
@@ -193,6 +206,13 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
                 let stdout = stdout_acc.lock().unwrap().clone();
                 let stderr = stderr_acc.lock().unwrap().clone();
 
+                // Cleanup here since we return early
+                {
+                    let state = app_handle.state::<AnalysisState>();
+                    let mut processes = state.child_processes.lock().unwrap();
+                    processes.remove("single_analysis");
+                }
+
                 if status.code == Some(0) {
                     // Success: Extract the human-readable summary between markers
                     let mut in_summary = false;
@@ -221,7 +241,7 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
                     } else {
                         summary_lines.join("\n")
                     };
-                    
+
                     return Ok(summary.trim().to_string());
                 } else {
                     let mut error_msg = stderr.trim().to_string();
@@ -236,6 +256,13 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
             }
             _ => {}
         }
+    }
+
+    // Remove the process from tracking after finished
+    {
+        let state = app_handle.state::<AnalysisState>();
+        let mut processes = state.child_processes.lock().unwrap();
+        processes.remove("single_analysis");
     }
 
     Err("Sidecar process closed unexpectedly".to_string())
@@ -265,18 +292,38 @@ async fn analyze_text(app_handle: tauri::AppHandle, text: String, mode: String) 
     result
 }
 
+#[tauri::command]
+async fn stop_analysis(state: tauri::State<'_, AnalysisState>) -> Result<(), String> {
+    let mut processes = state.child_processes.lock().map_err(|e| e.to_string())?;
+    if let Some(child) = processes.remove("single_analysis") {
+        child.kill().map_err(|e| format!("Failed to kill analysis process: {}", e))?;
+        return Ok(());
+    }
+    Err("No active analysis to stop".to_string())
+}
+
+
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(AnalysisState {
+            child_processes: Mutex::new(HashMap::new()),
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             process_file,
             analyze_text,
+            read_file,
             select_directory,
-            run_batch_analysis
+            run_batch_analysis,
+            stop_analysis
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

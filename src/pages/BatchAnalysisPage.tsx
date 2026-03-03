@@ -1,95 +1,46 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-
-interface BatchResult {
-  file: string;
-  time_ms: string;
-  states: string;
-  transitions: string;
-  individuals: string;
-  actions: string;
-  conflicting: string;
-  conflict_count: string;
-  automaton_size: string;
-  max_memory: string;
-  status: string;
-  info: string;
-}
-
-interface ProgressEvent {
-  file: string;
-  status: string;
-  result: string | null;
-  time_ms: number | null;
-  progress: number;
-}
+import { 
+  Loader2, 
+  CheckCircle2, 
+  AlertCircle, 
+  FolderOpen, 
+  Play, 
+  FileText,
+  FileCog,
+} from "lucide-react";
+import { useAnalysisContext } from "../context/AnalysisContext";
 
 export function BatchAnalysisPage() {
-  const [folderPath, setFolderPath] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [currentFile, setCurrentFile] = useState<string>("");
-  const [results, setResults] = useState<BatchResult[]>([]);
+  const { batchAnalysis } = useAnalysisContext();
+  const {
+    folderPath, setFolderPath,
+    isAnalyzing, setIsAnalyzing,
+    progress, setProgress,
+    currentFile, setCurrentFile,
+    results, setResults,
+    logs, setLogs,
+    addLog
+  } = batchAnalysis;
+
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unlisten = listen<ProgressEvent>("batch-progress", (event) => {
-      setProgress(event.payload.progress * 100);
-      setCurrentFile(event.payload.file);
-      
-      if (event.payload.status !== "Processing") {
-        // Parse the result if it's a success string (CSV format)
-        if (event.payload.status === "Success" && event.payload.result) {
-          const parts = event.payload.result.split(";");
-          // parts indices: 0:time, 1:states, 2:transitions, 3:indiv, 4:actions, 5:conflicting, 6:conflict_count, 7:size, 8:ram, 9:status
-          const newResult: BatchResult = {
-            file: event.payload.file,
-            time_ms: parts[0] || event.payload.time_ms?.toString() || "-",
-            states: parts[1] || "-",
-            transitions: parts[2] || "-",
-            individuals: parts[3] || "-",
-            actions: parts[4] || "-",
-            conflicting: parts[5] === "1" ? "Yes" : "No",
-            conflict_count: parts[6] || "-",
-            automaton_size: parts[7] || "-",
-            max_memory: parts[8] || "-",
-            status: "Success",
-            info: "",
-          };
-          setResults((prev) => [...prev, newResult]);
-        } else {
-          const newResult: BatchResult = {
-            file: event.payload.file,
-            time_ms: event.payload.time_ms?.toString() || "-",
-            states: "-",
-            transitions: "-",
-            individuals: "-",
-            actions: "-",
-            conflicting: "-",
-            conflict_count: "-",
-            automaton_size: "-",
-            max_memory: "-",
-            status: "Error",
-            info: (event.payload.result || "Unknown error").replace(/\r?\n|\r/g, " "),
-          };
-          setResults((prev) => [...prev, newResult]);
-        }
-      }
-    });
-
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   const handleSelectFolder = async () => {
     try {
       const selected = await invoke<string | null>("select_directory");
       if (selected) {
         setFolderPath(selected);
+        addLog(`Selected folder: ${selected}`, "info");
       }
     } catch (err) {
       console.error("Failed to select directory:", err);
+      addLog(`Failed to select directory: ${err}`, "error");
     }
   };
 
@@ -99,221 +50,540 @@ export function BatchAnalysisPage() {
     setIsAnalyzing(true);
     setProgress(0);
     setResults([]);
-    setCurrentFile("Starting...");
+    setLogs([]);
+    setCurrentFile("Initializing...");
+    addLog(`Starting batch analysis in: ${folderPath}`, "info");
 
     try {
-      const message = await invoke<string>("run_batch_analysis", { folderPath });
-      alert(message);
+      await invoke<string>("run_batch_analysis", { folderPath });
+      addLog("Analysis process finished.", "success");
     } catch (err) {
       console.error("Analysis failed:", err);
-      alert("Error during batch analysis: " + err);
+      addLog(`Critical error: ${err}`, "error");
     } finally {
       setIsAnalyzing(false);
-      setCurrentFile("Completed");
+      setCurrentFile("Done");
     }
   };
 
   return (
     <div className="batch-analysis-page">
       <h1>Batch Analysis</h1>
-      <p className="subtitle">Process multiple RCL files from a folder.</p>
+      <p className="subtitle">High-performance processing for multiple RCL files.</p>
 
-      <div className="controls">
-        <div className="folder-input-group">
-          <input 
-            type="text" 
-            readOnly 
-            placeholder="No folder selected" 
-            value={folderPath || ""} 
-          />
-          <button onClick={handleSelectFolder} disabled={isAnalyzing}>
-            Browse...
+      <div className="main-card glass">
+        <div className="controls-grid">
+          <div className="folder-input-wrapper">
+            <label>Source Directory</label>
+            <div className="folder-input-group">
+              <input 
+                type="text" 
+                readOnly 
+                placeholder="Click browse to select a folder..." 
+                value={folderPath || ""} 
+              />
+              <button className="browse-btn" onClick={handleSelectFolder} disabled={isAnalyzing}>
+                <FolderOpen size={18} />
+                <span>Browse</span>
+              </button>
+            </div>
+          </div>
+          
+          <button 
+            className={`start-btn ${isAnalyzing ? 'analyzing' : ''}`} 
+            onClick={handleStartAnalysis} 
+            disabled={!folderPath || isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 size={20} className="spin" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <Play size={20} />
+                <span>Start Batch Execution</span>
+              </>
+            )}
           </button>
         </div>
-        
-        <button 
-          className="start-btn" 
-          onClick={handleStartAnalysis} 
-          disabled={!folderPath || isAnalyzing}
-        >
-          {isAnalyzing ? "Analyzing..." : "Start Batch Analysis"}
-        </button>
+
+        {(isAnalyzing || logs.length > 0) && (
+          <div className="execution-status">
+            {isAnalyzing && (
+              <div className="active-progress">
+                <div className="progress-header">
+                  <div className="current-file-info">
+                    <FileCog size={16} className="pulse-icon" />
+                    <span className="file-label">Currently processing:</span>
+                    <span className="file-name">{currentFile || "Preparing..."}</span>
+                  </div>
+                  <span className="percentage">{Math.round(progress)}%</span>
+                </div>
+                <div className="progress-bar-outer">
+                  <div 
+                    className={`progress-bar-inner ${isAnalyzing ? 'shimmer' : ''}`} 
+                    style={{ width: `${progress}%` }}
+                  >
+                    <div className="progress-glow"></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {isAnalyzing && (
-        <div className="progress-container">
-          <div className="progress-info">
-            <span>{currentFile}</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div 
-              className="progress-bar-fill" 
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
       {results.length > 0 && (
-        <div className="results-container">
-          <h2>Results</h2>
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Status</th>
-                <th>Time (ms)</th>
-                <th>States</th>
-                <th>Trans.</th>
-                <th>Indiv.</th>
-                <th>Actions</th>
-                <th>Conf.</th>
-                <th>No. Conf.</th>
-                <th>Size (MB)</th>
-                <th>RAM (MB)</th>
-                <th>Info</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((res, idx) => (
-                <tr key={idx} className={res.status.toLowerCase()}>
-                  <td>{res.file}</td>
-                  <td>{res.status}</td>
-                  <td>{res.time_ms}</td>
-                  <td>{res.states}</td>
-                  <td>{res.transitions}</td>
-                  <td>{res.individuals}</td>
-                  <td>{res.actions}</td>
-                  <td>{res.conflicting}</td>
-                  <td>{res.conflict_count}</td>
-                  <td>{res.automaton_size}</td>
-                  <td>{res.max_memory}</td>
-                  <td className="info-cell" title={res.info}>{res.info}</td>
+        <div className="results-section fade-in">
+          <div className="section-header">
+            <FileText size={20} />
+            <h2>Results</h2>
+            <div className="results-count">{results.length} files processed</div>
+          </div>
+          <div className="results-table-wrapper glass">
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Status</th>
+                  <th>Time (ms)</th>
+                  <th>States</th>
+                  <th>Trans.</th>
+                  <th>Indiv.</th>
+                  <th>Actions</th>
+                  <th>Conflicts</th>
+                  <th>Result Size</th>
+                  <th>RAM (MB)</th>
+                  <th>Info</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {results.map((res, idx) => (
+                  <tr key={idx} className={res.status.toLowerCase()}>
+                    <td className="file-cell" title={res.file}>
+                      {res.file.split(/[\\/]/).pop()}
+                    </td>
+                    <td>
+                      <span className={`status-badge ${res.status.toLowerCase()}`}>
+                        {res.status === "Success" ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                        {res.status}
+                      </span>
+                    </td>
+                    <td className="mono">{res.time_ms}</td>
+                    <td className="mono">{res.states}</td>
+                    <td className="mono">{res.transitions}</td>
+                    <td className="mono">{res.individuals}</td>
+                    <td className="mono">{res.actions}</td>
+                    <td>
+                      <span className={`conflict-tag ${res.conflicting === 'Yes' ? 'has-conflicts' : ''}`}>
+                        {res.conflicting} ({res.conflict_count})
+                      </span>
+                    </td>
+                    <td className="mono">{res.automaton_size}</td>
+                    <td className="mono">{res.max_memory}</td>
+                    <td className="info-cell" title={res.info}>{res.info}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       <style>{`
         .batch-analysis-page {
-          max-width: 1000px;
+          max-width: 800px;
           margin: 0 auto;
           text-align: center;
           padding: 2rem;
           color: #f6f6f6;
         }
+
         .subtitle {
-          font-size: 1.1rem;
+          font-size: 1.2rem;
           color: #646cff;
+          margin-bottom: 3rem;
+        }
+
+        .glass {
+          background: rgba(30, 41, 59, 0.5);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .main-card {
+          padding: 2rem;
           margin-bottom: 2rem;
         }
-        .controls {
+
+        .controls-grid {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          align-items: center;
-          margin-bottom: 2rem;
-          background: rgba(255, 255, 255, 0.05);
-          padding: 2rem;
-          border-radius: 12px;
+          gap: 1.5rem;
+          align-items: stretch;
         }
+
+        .folder-input-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          text-align: left;
+        }
+
+        .folder-input-wrapper label {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #6366f1;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
         .folder-input-group {
           display: flex;
-          width: 100%;
-          max-width: 600px;
-          gap: 0.5rem;
+          gap: 0.75rem;
         }
+
         .folder-input-group input {
           flex: 1;
-          padding: 0.8rem;
-          border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: rgba(0, 0, 0, 0.3);
-          color: white;
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(15, 23, 42, 0.6);
+          color: #f8fafc;
+          font-size: 0.95rem;
+          transition: all 0.2s;
         }
-        .folder-input-group button, .start-btn {
-          padding: 0.8rem 1.5rem;
-          border-radius: 8px;
-          border: none;
-          background: #646cff;
-          color: white;
+
+        .folder-input-group input:focus {
+          outline: none;
+          border-color: #6366f1;
+          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        .browse-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0 1.25rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+          color: #fff;
+          font-weight: 600;
           cursor: pointer;
-          font-weight: bold;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
-        .folder-input-group button:hover, .start-btn:hover:not(:disabled) {
-          background: #535bf2;
+
+        .browse-btn:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
         }
+
         .start-btn {
-          width: 100%;
-          max-width: 600px;
-          background: #24c8db;
+          height: 46px;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0 2rem;
+          border-radius: 10px;
+          border: none;
+          background: #6366f1;
+          color: white;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
         }
+
+        .start-btn:hover:not(:disabled) {
+          background: #4f46e5;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.23);
+        }
+
+        .start-btn:active {
+          transform: translateY(0);
+        }
+
         .start-btn:disabled {
-          opacity: 0.5;
+          opacity: 0.6;
           cursor: not-allowed;
+          filter: grayscale(0.5);
         }
-        .progress-container {
-          width: 100%;
-          max-width: 600px;
-          margin: 0 auto 2rem auto;
+
+        .start-btn.analyzing {
+          background: #0ea5e9;
+          box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
         }
-        .progress-info {
+
+        .execution-status {
+          margin-top: 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .active-progress {
+          background: rgba(15, 23, 42, 0.4);
+          padding: 1.25rem;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-header {
           display: flex;
           justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.75rem;
+        }
+
+        .current-file-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           font-size: 0.9rem;
-          margin-bottom: 0.5rem;
-          color: #24c8db;
         }
-        .progress-bar-container {
-          width: 100%;
-          height: 10px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 5px;
+
+        .file-label {
+          color: #94a3b8;
+        }
+
+        .file-name {
+          color: #6366f1;
+          font-weight: 600;
+        }
+
+        .percentage {
+          font-weight: 800;
+          color: #6366f1;
+          font-size: 1.1rem;
+        }
+
+        .progress-bar-outer {
+          height: 12px;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
           overflow: hidden;
+          position: relative;
         }
-        .progress-bar-fill {
+
+        .progress-bar-inner {
           height: 100%;
-          background: linear-gradient(90deg, #646cff, #24c8db);
-          transition: width 0.3s ease;
+          background: linear-gradient(90deg, #6366f1 0%, #0ea5e9 100%);
+          border-radius: 6px;
+          transition: width 0.4s ease;
+          position: relative;
         }
-        .results-container {
+
+        .progress-glow {
+          position: absolute;
+          right: 0;
+          top: 0;
+          height: 100%;
+          width: 20px;
+          background: white;
+          filter: blur(8px);
+          opacity: 0.4;
+        }
+
+        .shimmer {
+          background-size: 40px 40px;
+          background-image: linear-gradient(
+            45deg, 
+            rgba(255, 255, 255, 0.1) 25%, 
+            transparent 25%, 
+            transparent 50%, 
+            rgba(255, 255, 255, 0.1) 50%, 
+            rgba(255, 255, 255, 0.1) 75%, 
+            transparent 75%, 
+            transparent
+          );
+          animation: progress-shimmer 1s linear infinite;
+        }
+
+        .results-section {
           margin-top: 3rem;
           text-align: left;
         }
+
+        .section-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1.25rem;
+        }
+
+        .section-header h2 {
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 700;
+        }
+
+        .results-count {
+          font-size: 0.8rem;
+          background: rgba(99, 102, 241, 0.15);
+          color: #a5b4fc;
+          padding: 0.2rem 0.6rem;
+          border-radius: 99px;
+          font-weight: 600;
+        }
+
+        .results-table-wrapper {
+          overflow-x: auto;
+          padding: 0.5rem;
+        }
+
         .results-table {
           width: 100%;
-          border-collapse: collapse;
-          margin-top: 1rem;
-          font-size: 0.9rem;
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 8px;
-          overflow: hidden;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 0.85rem;
         }
-        .results-table th, .results-table td {
-          padding: 1rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+
         .results-table th {
-          background: rgba(100, 108, 255, 0.2);
-          color: #646cff;
-          font-weight: bold;
+          padding: 1rem;
+          text-align: left;
+          color: #94a3b8;
+          font-weight: 600;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .results-table tr.success td:nth-child(2) { color: #4caf50; }
-        .results-table tr.error td:nth-child(2) { color: #f44336; }
+
+        .results-table td {
+          padding: 0.85rem 1rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .results-table tr:last-child td {
+          border-bottom: none;
+        }
+
         .results-table tr:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.02);
         }
+
+        .mono {
+          font-family: 'JetBrains Mono', monospace;
+          color: #cbd5e1;
+          font-size: 0.8rem;
+        }
+
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.2rem 0.6rem;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+
+        .status-badge.success {
+          background: rgba(34, 197, 94, 0.1);
+          color: #4ade80;
+        }
+
+        .status-badge.error {
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+        }
+
+        .conflict-tag {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+
+        .conflict-tag.has-conflicts {
+          color: #fbbf24;
+          font-weight: 600;
+        }
+
         .info-cell {
-          max-width: 200px;
+          max-width: 150px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.6);
+          color: #64748b;
+          font-size: 0.75rem;
+        }
+
+        .file-cell {
+          max-width: 180px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-weight: 500;
+        }
+
+        @keyframes progress-shimmer {
+          from { background-position: 40px 0; }
+          to { background-position: 0 0; }
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .pulse-icon {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          color: #0ea5e9;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+
+        .fade-in {
+          animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+          .batch-analysis-page {
+            padding: 1rem;
+          }
+          .controls-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+          .folder-input-group {
+            flex-direction: column;
+          }
+          .browse-btn {
+            padding: 0.8rem;
+            justify-content: center;
+          }
+          .start-btn {
+            width: 100%;
+            justify-content: center;
+          }
+          .subtitle {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+          }
+          h1 {
+            font-size: 1.8rem;
+          }
+          .main-card {
+            padding: 1.2rem;
+          }
+          .results-table th, .results-table td {
+            padding: 0.6rem;
+            font-size: 0.75rem;
+          }
         }
       `}</style>
     </div>

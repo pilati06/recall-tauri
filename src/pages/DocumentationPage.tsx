@@ -137,7 +137,32 @@ conflict{
         .documentation-page strong {
           color: #fff;
         }
+        @media (max-width: 768px) {
+          .documentation-page {
+            padding: 1rem;
+          }
+          .doc-section {
+            padding: 1.2rem;
+          }
+          .subtitle {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+          }
+          h1 {
+            font-size: 1.8rem;
+          }
+          .doc-section h2 {
+            font-size: 1.2rem;
+            gap: 8px;
+          }
+          .code-block {
+            padding: 1rem;
+            font-size: 0.8rem;
+          }
+        }
       `}</style>
+
+
     </div>
   );
 }
