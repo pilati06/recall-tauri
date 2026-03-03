@@ -1,5 +1,5 @@
 use recall_lib::parser::{build_ast, RCLParser, Rule};
-use recall_lib::utils::{parse_command_line, Logger, MemoryGuard, LogType};
+use recall_lib::utils::{parse_command_line, Logger, MemoryGuard, LogType, AutomatonExporter};
 use recall_lib::algorithms::automata_constructor::AutomataConstructor;
 use recall_lib::model::contracts::Contract;
 use pest::Parser;
@@ -88,6 +88,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("FINAL_SUMMARY_END");
     
     analyzer_logger.log(LogType::Minimal, "Analysis completed successfully");
+    
+    if config.is_export_automaton() {
+        let dot = AutomatonExporter::dump_to_dot(&automaton);
+        let path = config.automaton_file_name();
+        fs::write(path, dot)?;
+        analyzer_logger.log(LogType::Necessary, &format!("Automaton exported to {}", path));
+    }
+
+    if config.is_export_min_automaton() {
+        let dot = AutomatonExporter::dump_to_min_dot(&automaton);
+        let path = config.min_automaton_file_name();
+        fs::write(path, dot)?;
+        analyzer_logger.log(LogType::Necessary, &format!("Minimized automaton exported to {}", path));
+    }
 
     if config.is_test() {
         println!("RESULT_CSV:{}", data);

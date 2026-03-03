@@ -137,7 +137,7 @@ async fn run_batch_analysis(app: tauri::AppHandle, folder_path: String) -> Resul
     Ok(format!("Batch analysis completed. Results saved to {}", results_path.display()))
 }
 
-async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode: String) -> Result<String, String> {
+async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
     use tauri_plugin_shell::ShellExt;
     use tauri_plugin_shell::process::CommandEvent;
     use std::sync::{Arc, Mutex};
@@ -149,6 +149,14 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
         args.push("-v".to_string());
     } else if mode == "Test" {
         args.push("-t".to_string());
+    }
+
+    if export_automaton {
+        args.push("-g".to_string());
+    }
+
+    if export_min_automaton {
+        args.push("-m".to_string());
     }
 
     let (mut rx, child) = sidecar
@@ -269,22 +277,22 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 }
 
 #[tauri::command]
-async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String) -> Result<String, String> {
+async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
     if !std::path::Path::new(&path).exists() {
         return Err(format!("File not found: {}", path));
     }
-    run_analysis_internal(app_handle, path, mode).await
+    run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton).await
 }
 
 #[tauri::command]
-async fn analyze_text(app_handle: tauri::AppHandle, text: String, mode: String) -> Result<String, String> {
+async fn analyze_text(app_handle: tauri::AppHandle, text: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
     let temp_dir = std::env::temp_dir();
     let temp_file_path = temp_dir.join(format!("contract_{}.rcl", chrono::Utc::now().timestamp_millis()));
     let path_str = temp_file_path.to_string_lossy().to_string();
 
     fs::write(&temp_file_path, text).map_err(|e| format!("Failed to create temp file: {}", e))?;
 
-    let result = run_analysis_internal(app_handle, path_str, mode).await;
+    let result = run_analysis_internal(app_handle, path_str, mode, export_automaton, export_min_automaton).await;
 
     // Cleanup ignored for now or we can use a scopeguard/manual delete
     let _ = fs::remove_file(temp_file_path);

@@ -15,6 +15,8 @@ export function AnalysisPage() {
   } = singleAnalysis;
 
   const [selectedMode] = useState('Default');
+  const [exportAutomaton, setExportAutomaton] = useState(false);
+  const [exportMinAutomaton, setExportMinAutomaton] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,12 +69,16 @@ export function AnalysisPage() {
       if (filePath) {
         response = await invoke("process_file", { 
           path: filePath, 
-          mode: selectedMode 
+          mode: selectedMode,
+          exportAutomaton,
+          exportMinAutomaton
         });
       } else {
         response = await invoke("analyze_text", { 
           text: pastedText, 
-          mode: selectedMode 
+          mode: selectedMode,
+          exportAutomaton,
+          exportMinAutomaton
         });
       }
 
@@ -172,6 +178,60 @@ export function AnalysisPage() {
           >
             {isAnalyzing ? 'Stop Analysis' : 'Clear'}
           </button>
+        </div>
+
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          marginTop: '0.5rem',
+          gap: '0.5rem'
+        }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            color: 'rgba(255, 255, 255, 0.8)'
+          }}>
+            <input 
+              type="checkbox" 
+              checked={exportAutomaton} 
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setExportAutomaton(checked);
+                if (!checked) setExportMinAutomaton(false);
+              }}
+              disabled={isAnalyzing}
+              style={{ cursor: 'pointer' }}
+            />
+            Export Automaton (.dot)
+          </label>
+
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            color: 'rgba(255, 255, 255, 0.8)',
+            marginLeft: '1.5rem',
+            opacity: exportAutomaton ? 1 : 0.5
+          }}>
+            <input 
+              type="checkbox" 
+              checked={exportMinAutomaton} 
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setExportMinAutomaton(checked);
+                if (checked) setExportAutomaton(true);
+              }}
+              disabled={isAnalyzing}
+              style={{ cursor: 'pointer' }}
+            />
+            Include Minimized Version (_min.dot)
+          </label>
         </div>
       </div>
 
