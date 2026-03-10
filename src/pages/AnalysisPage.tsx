@@ -15,8 +15,7 @@ export function AnalysisPage() {
   } = singleAnalysis;
 
   const [selectedMode] = useState('Default');
-  const [exportAutomaton, setExportAutomaton] = useState(false);
-  const [exportMinAutomaton, setExportMinAutomaton] = useState(false);
+  const [exportOption, setExportOption] = useState<'none' | 'normal' | 'min' | 'both'>('none');
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,19 +65,22 @@ export function AnalysisPage() {
 
     try {
       let response;
+      const exportNormal = exportOption === 'normal' || exportOption === 'both';
+      const exportMin = exportOption === 'min' || exportOption === 'both';
+
       if (filePath) {
         response = await invoke("process_file", { 
           path: filePath, 
           mode: selectedMode,
-          exportAutomaton,
-          exportMinAutomaton
+          exportAutomaton: exportNormal,
+          exportMinAutomaton: exportMin
         });
       } else {
         response = await invoke("analyze_text", { 
           text: pastedText, 
           mode: selectedMode,
-          exportAutomaton,
-          exportMinAutomaton
+          exportAutomaton: exportNormal,
+          exportMinAutomaton: exportMin
         });
       }
 
@@ -183,55 +185,94 @@ export function AnalysisPage() {
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
-          alignItems: 'center', 
+          alignItems: 'flex-start', // Better alignment for radio group
           marginTop: '0.5rem',
-          gap: '0.5rem'
+          gap: '0.5rem',
+          paddingLeft: '1rem'
         }}>
-          <label style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            color: 'rgba(255, 255, 255, 0.8)'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={exportAutomaton} 
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setExportAutomaton(checked);
-                if (!checked) setExportMinAutomaton(false);
-              }}
-              disabled={isAnalyzing}
-              style={{ cursor: 'pointer' }}
-            />
-            Export Automaton (.dot)
-          </label>
+          <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.6)' }}>Automaton export options:</h4>
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              color: 'rgba(255, 255, 255, 0.8)'
+            }}>
+              <input 
+                type="radio" 
+                name="exportOption"
+                value="none"
+                checked={exportOption === 'none'} 
+                onChange={() => setExportOption('none')}
+                disabled={isAnalyzing}
+                style={{ cursor: 'pointer' }}
+              />
+              Don't export
+            </label>
 
-          <label style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            color: 'rgba(255, 255, 255, 0.8)',
-            marginLeft: '1.5rem',
-            opacity: exportAutomaton ? 1 : 0.5
-          }}>
-            <input 
-              type="checkbox" 
-              checked={exportMinAutomaton} 
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setExportMinAutomaton(checked);
-                if (checked) setExportAutomaton(true);
-              }}
-              disabled={isAnalyzing}
-              style={{ cursor: 'pointer' }}
-            />
-            Include Minimized Version (_min.dot)
-          </label>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              color: 'rgba(255, 255, 255, 0.8)'
+            }}>
+              <input 
+                type="radio" 
+                name="exportOption"
+                value="normal"
+                checked={exportOption === 'normal'} 
+                onChange={() => setExportOption('normal')}
+                disabled={isAnalyzing}
+                style={{ cursor: 'pointer' }}
+              />
+              Export automaton
+            </label>
+
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              color: 'rgba(255, 255, 255, 0.8)'
+            }}>
+              <input 
+                type="radio" 
+                name="exportOption"
+                value="min"
+                checked={exportOption === 'min'} 
+                onChange={() => setExportOption('min')}
+                disabled={isAnalyzing}
+                style={{ cursor: 'pointer' }}
+              />
+              Export automaton (minimized)
+            </label>
+
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              color: 'rgba(255, 255, 255, 0.8)'
+            }}>
+              <input 
+                type="radio" 
+                name="exportOption"
+                value="both"
+                checked={exportOption === 'both'} 
+                onChange={() => setExportOption('both')}
+                disabled={isAnalyzing}
+                style={{ cursor: 'pointer' }}
+              />
+              Export both
+            </label>
+          </div>
         </div>
       </div>
 

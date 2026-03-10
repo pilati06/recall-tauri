@@ -1213,7 +1213,7 @@ pub fn parse_command_line(args: &[String]) -> RunConfiguration {
                         config.set_continue_on_conflict(true);
                     }
                     'm' => {
-                        config.set_export_automaton(true);
+                        //config.set_export_automaton(true);
                         config.set_export_min_automaton(true);
                     }
                     't' => {
@@ -1250,7 +1250,7 @@ pub fn parse_command_line(args: &[String]) -> RunConfiguration {
                 config.set_continue_on_conflict(true);
             }
             "-m" => {
-                config.set_export_automaton(true);
+                //config.set_export_automaton(true);
                 config.set_export_min_automaton(true);
             }
             "-t" => {

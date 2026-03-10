@@ -90,17 +90,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     analyzer_logger.log(LogType::Minimal, "Analysis completed successfully");
     
     if config.is_export_automaton() {
-        if config.is_export_min_automaton() {
-            let dot = AutomatonExporter::dump_to_min_dot(&automaton);
-            let path = config.min_automaton_file_name();
-            fs::write(path, dot)?;
-            analyzer_logger.log(LogType::Necessary, &format!("Minimized automaton exported to {}", path));
-        } else {
-            let dot = AutomatonExporter::dump_to_dot(&automaton);
-            let path = config.automaton_file_name();
-            fs::write(path, dot)?;
-            analyzer_logger.log(LogType::Necessary, &format!("Automaton exported to {}", path));
-        }
+        let dot = AutomatonExporter::dump_to_dot(&automaton);
+        let path = config.automaton_file_name();
+        fs::write(path, dot)?;
+        analyzer_logger.log(LogType::Necessary, &format!("Automaton exported to {}", path));
+    }
+
+    if config.is_export_min_automaton() {
+        let dot = AutomatonExporter::dump_to_min_dot(&automaton);
+        let path = config.min_automaton_file_name();
+        fs::write(path, dot)?;
+        analyzer_logger.log(LogType::Necessary, &format!("Minimized automaton exported to {}", path));
     }
 
     if config.is_test() {
