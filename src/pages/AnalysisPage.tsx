@@ -64,25 +64,16 @@ export function AnalysisPage() {
     setResultMsg("Processing Contract...");
 
     try {
-      let response;
       const exportNormal = exportOption === 'normal' || exportOption === 'both';
       const exportMin = exportOption === 'min' || exportOption === 'both';
 
-      if (filePath) {
-        response = await invoke("process_file", { 
-          path: filePath, 
-          mode: selectedMode,
-          exportAutomaton: exportNormal,
-          exportMinAutomaton: exportMin
-        });
-      } else {
-        response = await invoke("analyze_text", { 
-          text: pastedText, 
-          mode: selectedMode,
-          exportAutomaton: exportNormal,
-          exportMinAutomaton: exportMin
-        });
-      }
+      const response = await invoke("analyze_text", {
+        text: pastedText,
+        mode: selectedMode,
+        exportAutomaton: exportNormal,
+        exportMinAutomaton: exportMin,
+        originPath: filePath || null,
+      });
 
       setResultMsg(String(response) || "Analysis completed.");
     } catch (error) {

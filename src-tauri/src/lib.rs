@@ -285,20 +285,106 @@ async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, 
 }
 
 #[tauri::command]
-async fn analyze_text(app_handle: tauri::AppHandle, text: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
+async fn analyze_text(
+    app_handle: tauri::AppHandle,
+    text: String,
+    mode: String,
+    export_automaton: bool,
+    export_min_automaton: bool,
+    origin_path: Option<String>,
+) -> Result<String, String> {
+    use std::path::PathBuf;
+
+    // Always write the analysis content to a TEMP file with a unique name.
+    // This ensures we NEVER touch the original file (avoiding modification date changes).
+    let ts = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let temp_stem = format!("recall_analysis_{}", ts);
     let temp_dir = std::env::temp_dir();
-    let temp_file_path = temp_dir.join(format!("contract_{}.rcl", chrono::Utc::now().timestamp_millis()));
-    let path_str = temp_file_path.to_string_lossy().to_string();
+    let temp_rcl = temp_dir.join(format!("{}.rcl", temp_stem));
+    let temp_rcl_str = temp_rcl.to_string_lossy().to_string();
 
-    fs::write(&temp_file_path, text).map_err(|e| format!("Failed to create temp file: {}", e))?;
+    fs::write(&temp_rcl, &text)
+        .map_err(|e| format!("Failed to create temp analysis file: {}", e))?;
 
-    let result = run_analysis_internal(app_handle, path_str, mode, export_automaton, export_min_automaton).await;
+    // Run the analysis using the temp file path.
+    // analyzer_engine will create outputs (*.result, *.log, *.dot) next to the temp .rcl.
+    let result = run_analysis_internal(
+        app_handle,
+        temp_rcl_str.clone(),
+        mode,
+        export_automaton,
+        export_min_automaton,
+    )
+    .await;
 
-    // Cleanup ignored for now or we can use a scopeguard/manual delete
-    let _ = fs::remove_file(temp_file_path);
+    // --- Resolve the final output directory and stem ---
+    // With origin_path: outputs go next to the original file, named after it.
+    // Without origin_path: outputs go to ~/Documents/Recall/ with a timestamp name.
+    let (output_dir, output_stem): (PathBuf, String) = if let Some(ref orig) = origin_path {
+        let orig_path = std::path::Path::new(orig);
+        let parent = orig_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| temp_dir.clone());
+        let stem = orig_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("contract")
+            .to_string();
+        (parent, stem)
+    } else {
+        let docs_dir: PathBuf = dirs::document_dir()
+            .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
+            .unwrap_or_else(|| temp_dir.clone());
+        let recall_dir = docs_dir.join("Recall");
+        (recall_dir, temp_stem.clone())
+    };
+
+    // Ensure output directory exists before copying
+    if let Err(e) = fs::create_dir_all(&output_dir) {
+        // Don't fail the whole analysis if we can't create the output dir
+        eprintln!("Warning: could not create output dir '{}': {}", output_dir.display(), e);
+    } else {
+        // Copy temp outputs to the final destination with the correct names.
+        // We always copy .result and .log (produced by the analyzer logger).
+        let files_to_copy: &[(&str, &str)] = &[
+            (&format!("{}.result", temp_stem), &format!("{}.result", output_stem)),
+            (&format!("{}.log",    temp_stem), &format!("{}.log",    output_stem)),
+        ];
+        for (src_name, dst_name) in files_to_copy {
+            let src = temp_dir.join(src_name);
+            let dst = output_dir.join(dst_name);
+            if src.exists() {
+                let _ = fs::copy(&src, &dst);
+                let _ = fs::remove_file(&src);
+            }
+        }
+
+        // Conditionally copy .dot / _min.dot
+        if export_automaton {
+            let src = temp_dir.join(format!("{}.dot", temp_stem));
+            let dst = output_dir.join(format!("{}.dot", output_stem));
+            if src.exists() {
+                let _ = fs::copy(&src, &dst);
+                let _ = fs::remove_file(&src);
+            }
+        }
+        if export_min_automaton {
+            let src = temp_dir.join(format!("{}_min.dot", temp_stem));
+            let dst = output_dir.join(format!("{}_min.dot", output_stem));
+            if src.exists() {
+                let _ = fs::copy(&src, &dst);
+                let _ = fs::remove_file(&src);
+            }
+        }
+    }
+
+    // Always clean up the temp .rcl
+    let _ = fs::remove_file(&temp_rcl);
 
     result
 }
+
 
 #[tauri::command]
 async fn stop_analysis(state: tauri::State<'_, AnalysisState>) -> Result<(), String> {
