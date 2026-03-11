@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAnalysisContext } from "../context/AnalysisContext";
+import { 
+  Loader2, 
+  Play, 
+  FileText
+} from "lucide-react";
 
 export function AnalysisPage() {
   const { singleAnalysis } = useAnalysisContext();
@@ -116,7 +121,9 @@ export function AnalysisPage() {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Contract</h3>
+        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+          {filePath ? filePath.split(/[\\/]/).pop() : 'Contract'}
+        </h3>
         <textarea
           placeholder="Paste your .rcl contract content here..."
           value={pastedText}
@@ -141,6 +148,9 @@ export function AnalysisPage() {
             opacity: isAnalyzing ? 0.7 : 1
           }}
         />
+        
+        {filePath && <p style={{ textAlign: 'center' }}>Selected file: <strong>{filePath}</strong></p>}
+        
         <div className="button-row">
           <button onClick={selectFile} 
           disabled={isAnalyzing}
@@ -156,11 +166,26 @@ export function AnalysisPage() {
             disabled={!pastedText.trim() || isAnalyzing}
             style={{
               padding: '0.8rem 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
               opacity: (pastedText.trim() && !isAnalyzing) ? 1 : 0.5,
               cursor: (pastedText.trim() && !isAnalyzing) ? 'pointer' : 'not-allowed'
             }}
           >
-            {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+            
+            {isAnalyzing ? (
+              <>
+                <Loader2 size={20} className="spin" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <Play size={20} />
+                <span>Run Analysis</span>
+              </>
+            )}
+            {/* {isAnalyzing ? 'Processing...' : 'Run Analysis'} */}
           </button>
           <button 
             onClick={isAnalyzing ? stopAnalysis : resetAnalysis}
@@ -266,12 +291,13 @@ export function AnalysisPage() {
           </div>
         </div>
       </div>
-
-      {filePath && <p style={{ textAlign: 'center' }}>Selected file: <strong>{filePath}</strong></p>}
       
+      <div className="section-header">
+        <FileText size={20} />
+        <h2>Result</h2>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
         <div style={{ flex: 1 }}>
-          <h3>Result summary</h3>
           <pre style={{ 
             background: '#1e1e1e',  
             color: '#d4d4d4', 
@@ -361,6 +387,28 @@ export function AnalysisPage() {
         .clear-btn:hover {
           background: rgba(248, 113, 113, 0.1);
           border-color: rgba(248, 113, 113, 0.2);
+        }
+        
+        .section-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1.25rem;
+        }
+
+        .section-header h2 {
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 700;
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

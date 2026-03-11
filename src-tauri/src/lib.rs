@@ -19,10 +19,12 @@ use tauri_plugin_shell::ShellExt;
 use tauri::{Emitter, Manager};
 use std::sync::Mutex;
 use tauri_plugin_shell::process::CommandChild;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct AnalysisState {
     pub child_processes: Mutex<HashMap<String, CommandChild>>,
+    pub stopped_processes: Mutex<HashSet<String>>,
+    pub locked_files: Mutex<HashMap<String, Vec<std::fs::File>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -80,6 +82,11 @@ async fn run_batch_analysis(app: tauri::AppHandle, folder_path: String) -> Resul
         });
 
         let start = Instant::now();
+        
+        // Lock the file during its processing time with Windows-safe sharing mode
+        let _rcl_file = FileUtil::open_protected(file_path, false, false, false)
+            .map_err(|e| format!("Failed to open {} for protection: {}", file_name, e))?;
+
         let sidecar = app.shell().sidecar("analyzer").map_err(|e| e.to_string())?;
         let output = sidecar
             .args([file_path, "-t"])
@@ -164,11 +171,18 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
         .spawn()
         .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
-    // Store the child process for the single analysis
+    // Lock the input file to prevent deletion during analysis (Windows persistent protection)
+    let file = FileUtil::open_protected(&path, false, false, false)
+        .map_err(|e| format!("Failed to open file for protection: {}", e))?;
+
+    // Store the child process and the locked handle for the single analysis
     {
         let state = app_handle.state::<AnalysisState>();
         let mut processes = state.child_processes.lock().unwrap();
         processes.insert("single_analysis".to_string(), child);
+        
+        let mut locks = state.locked_files.lock().unwrap();
+        locks.insert("single_analysis".to_string(), vec![file]);
     }
 
     let stdout_acc = Arc::new(Mutex::new(String::new()));
@@ -219,8 +233,10 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
                     let state = app_handle.state::<AnalysisState>();
                     let mut processes = state.child_processes.lock().unwrap();
                     processes.remove("single_analysis");
+                    
+                    let mut locks = state.locked_files.lock().unwrap();
+                    locks.remove("single_analysis");
                 }
-
                 if status.code == Some(0) {
                     // Success: Extract the human-readable summary between markers
                     let mut in_summary = false;
@@ -252,6 +268,19 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 
                     return Ok(summary.trim().to_string());
                 } else {
+                    let mut is_stopped = false;
+                    {
+                        let state = app_handle.state::<AnalysisState>();
+                        let mut stopped = state.stopped_processes.lock().unwrap();
+                        if stopped.remove("single_analysis") {
+                            is_stopped = true;
+                        }
+                    }
+
+                    if is_stopped {
+                        return Err("Analysis stopped by the user.".to_string());
+                    }
+
                     let mut error_msg = stderr.trim().to_string();
                     if error_msg.is_empty() {
                         error_msg = stdout.lines()
@@ -266,11 +295,14 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
         }
     }
 
-    // Remove the process from tracking after finished
+    // Remove the process and lock from tracking after finished
     {
         let state = app_handle.state::<AnalysisState>();
         let mut processes = state.child_processes.lock().unwrap();
         processes.remove("single_analysis");
+
+        let mut locks = state.locked_files.lock().unwrap();
+        locks.remove("single_analysis");
     }
 
     Err("Sidecar process closed unexpectedly".to_string())
@@ -390,6 +422,11 @@ async fn analyze_text(
 async fn stop_analysis(state: tauri::State<'_, AnalysisState>) -> Result<(), String> {
     let mut processes = state.child_processes.lock().map_err(|e| e.to_string())?;
     if let Some(child) = processes.remove("single_analysis") {
+        // Mark as explicitly stopped
+        {
+            let mut stopped = state.stopped_processes.lock().unwrap();
+            stopped.insert("single_analysis".to_string());
+        }
         child.kill().map_err(|e| format!("Failed to kill analysis process: {}", e))?;
         return Ok(());
     }
@@ -407,6 +444,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AnalysisState {
             child_processes: Mutex::new(HashMap::new()),
+            stopped_processes: Mutex::new(HashSet::new()),
+            locked_files: Mutex::new(HashMap::new()),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

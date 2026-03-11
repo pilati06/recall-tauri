@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
+use fs2::FileExt;
 use std::io::{self, BufWriter, Write};
 use std::path::Path as LogPath;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -516,6 +517,33 @@ impl FileUtil {
         writer.flush()?;
         Ok(true)
     }
+
+    /// Abre um arquivo com proteção contra exclusão (Windows) e trava consultiva (Cross-platform)
+    pub fn open_protected<P: AsRef<LogPath>>(path: P, write: bool, append: bool, truncate: bool) -> io::Result<File> {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        if write { options.write(true).create(true); }
+        if append { options.append(true).create(true); }
+        if truncate { options.truncate(true); }
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            // 1 = FILE_SHARE_READ, 2 = FILE_SHARE_WRITE (Excluindo 4 = FILE_SHARE_DELETE)
+            options.share_mode(1 | 2);
+        }
+
+        let file = options.open(path)?;
+
+        // Trava consultiva para outros processos que respeitam fcntl/flock
+        if write || append {
+            file.lock_exclusive()?;
+        } else {
+            file.lock_shared()?;
+        }
+
+        Ok(file)
+    }
 }
 
 // ==================== logger.rs ====================
@@ -547,16 +575,9 @@ impl Logger {
             .unwrap_or("contract")
             .to_string();
 
-        let global_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&global_log_filename)?;
+        let global_file = FileUtil::open_protected(&global_log_filename, false, true, false)?;
 
-        let local_file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(configuration.result_file_name())?;
+        let local_file = FileUtil::open_protected(configuration.result_file_name(), true, false, true)?;
 
         Ok(Self {
             level: configuration.log_level(),

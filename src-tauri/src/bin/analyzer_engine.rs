@@ -3,7 +3,6 @@ use recall_lib::utils::{parse_command_line, Logger, MemoryGuard, LogType, Automa
 use recall_lib::algorithms::automata_constructor::AutomataConstructor;
 use recall_lib::model::contracts::Contract;
 use pest::Parser;
-use std::fs;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +47,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     analyzer_logger.log(LogType::Necessary, &format!("Using {:?}", config));
     analyzer_logger.log(LogType::Necessary, &format!("Analysing contract in {}", config.contract_file_name()));
 
-    let input_string = fs::read_to_string(config.contract_file_name())?;
+    let mut file = recall_lib::utils::FileUtil::open_protected(config.contract_file_name(), false, false, false)?;
+    let mut input_string = String::new();
+    use std::io::Read;
+    file.read_to_string(&mut input_string)?;
     let mut pairs = RCLParser::parse(Rule::main, &input_string)?;
     let main_pair = pairs.next().unwrap();
     let contract: Contract = build_ast(main_pair)?;
@@ -92,14 +94,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if config.is_export_automaton() {
         let dot = AutomatonExporter::dump_to_dot(&automaton);
         let path = config.automaton_file_name();
-        fs::write(path, dot)?;
+        let mut file = recall_lib::utils::FileUtil::open_protected(path, true, false, true)?;
+        use std::io::Write;
+        file.write_all(dot.as_bytes())?;
         analyzer_logger.log(LogType::Necessary, &format!("Automaton exported to {}", path));
     }
 
     if config.is_export_min_automaton() {
         let dot = AutomatonExporter::dump_to_min_dot(&automaton);
         let path = config.min_automaton_file_name();
-        fs::write(path, dot)?;
+        let mut file = recall_lib::utils::FileUtil::open_protected(path, true, false, true)?;
+        use std::io::Write;
+        file.write_all(dot.as_bytes())?;
         analyzer_logger.log(LogType::Necessary, &format!("Minimized automaton exported to {}", path));
     }
 
