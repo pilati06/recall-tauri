@@ -201,12 +201,12 @@ export function BatchAnalysisPage() {
 
         {(isAnalyzing || logs.length > 0) && (
           <div className="execution-status" style={{ marginTop: '1.5rem' }}>
-            {isAnalyzing && (
+            {(isAnalyzing || progress > 0) && (
               <div className="active-progress">
                 <div className="progress-header">
                   <div className="current-file-info">
-                    <FileCog size={16} className="pulse-icon" />
-                    <span className="file-label"> Currently processing:</span>
+                    <FileCog size={16} className={isAnalyzing ? "pulse-icon" : ""} />
+                    <span className="file-label"> {isAnalyzing ? "Currently processing:" : "Batch status:"}</span>
                     <span className="file-name">{currentFile || "Preparing..."}</span>
                   </div>
                   <span className="percentage">{Math.round(progress)}%</span>
