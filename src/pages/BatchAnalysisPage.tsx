@@ -14,8 +14,18 @@ import {
   Zap,
   Box,
   Layout,
+  ExternalLink,
+  ChevronRight,
+  Square
 } from "lucide-react";
-import { useAnalysisContext } from "../context/AnalysisContext";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useAnalysisContext, BatchResult } from "../context/AnalysisContext";
+
+interface SymbolEntry {
+  id: string;
+  symbol_type: string;
+  value: string;
+}
 
 export function BatchAnalysisPage() {
   const { batchAnalysis } = useAnalysisContext();
@@ -26,11 +36,55 @@ export function BatchAnalysisPage() {
     currentFile, setCurrentFile,
     results, setResults,
     logs, setLogs,
-    addLog
+    addLog,
+    batchCsvPath, setBatchCsvPath
   } = batchAnalysis;
 
-  const [selectedResult, setSelectedResult] = useState<any | null>(null);
+  const [selectedResult, setSelectedResult] = useState<BatchResult | null>(null);
+  const [relatedFiles, setRelatedFiles] = useState<Record<string, string>>({});
+  const [symbols, setSymbols] = useState<SymbolEntry[]>([]);
+  const [isSymbolsExpanded, setIsSymbolsExpanded] = useState(false);
+  const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch related files when selection changes
+  useEffect(() => {
+    if (selectedResult) {
+      invoke<Record<string, string>>("get_related_files", { path: selectedResult.file })
+        .then(setRelatedFiles)
+        .catch(err => {
+          console.error("Failed to fetch related files:", err);
+          setRelatedFiles({});
+        });
+    } else {
+      setRelatedFiles({});
+    }
+    setIsSymbolsExpanded(false);
+    setSymbols([]);
+  }, [selectedResult]);
+
+  const fetchSymbolTable = async () => {
+    if (!selectedResult || !relatedFiles.log || symbols.length > 0) {
+      if (symbols.length > 0) setIsSymbolsExpanded(!isSymbolsExpanded);
+      return;
+    }
+
+    setIsLoadingSymbols(true);
+    try {
+      const data = await invoke<SymbolEntry[]>("get_symbol_table", { filePath: selectedResult.file });
+      setSymbols(data);
+      setIsSymbolsExpanded(true);
+    } catch (err) {
+      console.error("Failed to fetch symbols:", err);
+      addLog(`Error loading symbols: ${err}`, "error");
+    } finally {
+      setIsLoadingSymbols(false);
+    }
+  };
+
+  const getConflictLines = (info: string) => {
+    return info.split('\n').filter(line => line.trim().startsWith('Conflict:'));
+  };
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -58,18 +112,35 @@ export function BatchAnalysisPage() {
     setProgress(0);
     setResults([]);
     setLogs([]);
+    setBatchCsvPath("");
     setCurrentFile("Initializing...");
     addLog(`Starting batch analysis in: ${folderPath}`, "info");
 
     try {
-      await invoke<string>("run_batch_analysis", { folderPath });
+      const response = await invoke<string>("run_batch_analysis", { folderPath });
       addLog("Analysis process finished.", "success");
+      
+      // Extract path from "Batch analysis completed. Results saved to <path>"
+      if (response.includes("Results saved to ")) {
+        const path = response.split("Results saved to ")[1];
+        setBatchCsvPath(path);
+      }
     } catch (err) {
       console.error("Analysis failed:", err);
       addLog(`Critical error: ${err}`, "error");
     } finally {
       setIsAnalyzing(false);
       setCurrentFile("Done");
+    }
+  };
+
+  const handleStopAnalysis = async () => {
+    try {
+      await invoke("stop_analysis");
+      addLog("Stop signal sent...", "info");
+    } catch (err) {
+      console.error("Failed to stop analysis:", err);
+      addLog(`Error stopping analysis: ${err}`, "error");
     }
   };
 
@@ -96,23 +167,36 @@ export function BatchAnalysisPage() {
             </div>
           </div>
           
-          <button 
-            className={`start-btn ${isAnalyzing ? 'analyzing' : ''}`} 
-            onClick={handleStartAnalysis} 
-            disabled={!folderPath || isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 size={20} className="spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <Play size={20} />
-                <span>Start Batch Execution</span>
-              </>
+          <div className="actions-group">
+            <button 
+              className={`start-btn ${isAnalyzing ? 'analyzing' : ''}`} 
+              onClick={handleStartAnalysis} 
+              disabled={!folderPath || isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 size={20} className="spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={20} />
+                  <span>Start Batch Execution</span>
+                </>
+              )}
+            </button>
+
+            {isAnalyzing && (
+              <button 
+                className="stop-btn fade-in" 
+                onClick={handleStopAnalysis}
+                title="Stop Batch Analysis"
+              >
+                <Square size={20} fill="currentColor" />
+                <span>Stop Analysis</span>
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
         {(isAnalyzing || logs.length > 0) && (
@@ -147,6 +231,18 @@ export function BatchAnalysisPage() {
             <FileText size={20} />
             <h2>Results</h2>
             <div className="results-count">{results.length} files processed</div>
+            
+            {batchCsvPath && (
+              <button 
+                className="action-btn-link" 
+                onClick={() => revealItemInDir(batchCsvPath)}
+                style={{ marginLeft: 'auto', padding: '6px 12px', width: 'auto' }}
+              >
+                <FileText size={16} />
+                <span>Open Batch CSV</span>
+                <ChevronRight size={14} className="chevron" />
+              </button>
+            )}
           </div>
           <div className="results-table-wrapper glass">
             <table className="results-table">
@@ -190,7 +286,9 @@ export function BatchAnalysisPage() {
                         {res.status}
                       </span>
                     </td>
-                    <td className="mono">{res.time_ms}ms</td>
+                    <td className="mono">
+                      {res.time_ms !== "-" ? (parseFloat(res.time_ms) / 1000).toFixed(3) + 's' : "-"}
+                    </td>
                     <td className="mono">{res.states}</td>
                     <td className="mono">{res.actions}</td>
                     <td style={{ textAlign: 'center' }}>
@@ -228,7 +326,9 @@ export function BatchAnalysisPage() {
               <div className="metrics-grid">
                 <div className="metric-card">
                   <label><Zap size={14} /> Time</label>
-                  <span className="value">{selectedResult.time_ms}ms</span>
+                  <span className="value">
+                    {selectedResult.time_ms !== "-" ? (parseFloat(selectedResult.time_ms) / 1000).toFixed(3) + 's' : "-"}
+                  </span>
                 </div>
                 <div className="metric-card">
                    <label><Box size={14} /> Size</label>
@@ -237,6 +337,90 @@ export function BatchAnalysisPage() {
                 <div className="metric-card">
                    <label><Cpu size={14} /> Memory</label>
                    <span className="value">{selectedResult.max_memory} MB</span>
+                </div>
+              </div>
+
+              <div className="drawer-section">
+                <label><ExternalLink size={14} /> Quick Actions</label>
+                <div className="actions-list">
+                  <button className="action-btn-link" onClick={() => revealItemInDir(selectedResult.file)}>
+                    <FolderOpen size={16} />
+                    <span>Show in Folder</span>
+                    <ChevronRight size={14} className="chevron" />
+                  </button>
+                  
+                  {relatedFiles.result && (
+                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.result)}>
+                      <FileText size={16} />
+                      <span>Open Result</span>
+                      <ChevronRight size={14} className="chevron" />
+                    </button>
+                  )}
+                  
+                  {relatedFiles.log && (
+                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.log)}>
+                      <FileCog size={16} />
+                      <span>View Full Log</span>
+                      <ChevronRight size={14} className="chevron" />
+                    </button>
+                  )}
+
+                  {relatedFiles.dot && (
+                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.dot)}>
+                      <Layout size={16} />
+                      <span>Automaton (DOT)</span>
+                      <ChevronRight size={14} className="chevron" />
+                    </button>
+                  )}
+
+                  {relatedFiles.min_dot && (
+                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.min_dot)}>
+                      <Layout size={16} />
+                      <span>Min Automaton (DOT)</span>
+                      <ChevronRight size={14} className="chevron" />
+                    </button>
+                  )}
+
+                  {relatedFiles.log && (
+                    <div className="symbols-accordion">
+                      <button 
+                        className={`action-btn-link ${isSymbolsExpanded ? 'expanded' : ''}`} 
+                        onClick={fetchSymbolTable}
+                        disabled={isLoadingSymbols}
+                      >
+                        <Layout size={16} />
+                        <span>{isLoadingSymbols ? 'Loading symbols...' : 'Table of Symbols'}</span>
+                        <ChevronRight size={14} className={`chevron ${isSymbolsExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+                      
+                      {isSymbolsExpanded && symbols.length > 0 && (
+                        <div className="symbols-table-container fade-in">
+                          <table className="symbols-mini-table">
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {symbols.map((s, i) => (
+                                <tr key={i}>
+                                  <td className="mono">({s.id})</td>
+                                  <td>
+                                    <span className={`symbol-type-tag ${s.symbol_type}`}>
+                                      {s.symbol_type}
+                                    </span>
+                                  </td>
+                                  <td className="mono">{s.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -255,12 +439,36 @@ export function BatchAnalysisPage() {
                  </div>
               </div>
 
-              <div className="drawer-section">
-                <label><AlertCircle size={14} /> Analysis Log / Error</label>
-                <pre className="info-pre">
-                  {selectedResult.info || "No details available."}
-                </pre>
-              </div>
+              {selectedResult.status === "Error" ? (
+                <div className="drawer-section fade-in">
+                  <label><AlertCircle size={14} /> Analysis Error</label>
+                  <pre className="info-pre error">
+                    {selectedResult.info || "Unknown error occurred."}
+                  </pre>
+                </div>
+              ) : (
+                <div className="drawer-section fade-in">
+                  <label><CheckCircle2 size={14} /> Analysis Result</label>
+                  
+                  <div className={`result-badge ${selectedResult.conflicting === 'Yes' ? 'conflict' : 'clean'}`}>
+                    {selectedResult.conflicting === 'Yes' ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+                    <span>
+                      {selectedResult.conflicting === 'Yes' ? `Conflict Found (${selectedResult.conflict_count})` : 'Conflict-Free'}
+                    </span>
+                  </div>
+
+                  {selectedResult.conflicting === 'Yes' && (
+                    <div className="conflict-details-preview fade-in">
+                      {getConflictLines(selectedResult.info).map((line, i) => (
+                        <div key={i} className="conflict-line">
+                          <AlertTriangle size={12} />
+                          <span>{line.replace('Conflict:', '').trim()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -310,9 +518,38 @@ export function BatchAnalysisPage() {
         .folder-input-group { display: flex; gap: 0.75rem; }
         .folder-input-group input { flex: 1; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(15, 23, 42, 0.6); color: #f8fafc; }
         .browse-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; cursor: pointer; }
-        .start-btn { height: 46px; display: flex; align-items: center; gap: 0.75rem; padding: 0 2rem; border-radius: 10px; border: none; background: #6366f1; color: white; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+        .start-btn { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 0 2rem; border-radius: 10px; border: none; background: #6366f1; color: white; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
         .start-btn:hover:not(:disabled) { background: #4f46e5; transform: translateY(-1px); }
-        .start-btn.analyzing { background: #0ea5e9; }
+        .start-btn.analyzing { background: #0ea5e9; flex: 2; }
+        
+        .actions-group {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
+
+        .stop-btn {
+          flex: 1;
+          height: 46px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          padding: 0 1.5rem;
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 700;
+          transition: all 0.2s ease;
+        }
+
+        .stop-btn:hover {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: rgba(239, 68, 68, 0.3);
+          transform: translateY(-1px);
+        }
 
         .active-progress { background: rgba(15, 23, 42, 0.4); padding: 1.25rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); }
         .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
@@ -412,7 +649,191 @@ export function BatchAnalysisPage() {
         .close-drawer-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0.5rem; border-radius: 50%; }
 
         .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .actions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          margin-top: 0.5rem;
+        }
+
+        .action-btn-link {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          width: 100%;
+          padding: 0.75rem 1rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          color: rgba(255, 255, 255, 0.8);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+        }
+
+        .action-btn-link:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.15);
+          color: #fff;
+          transform: translateX(4px);
+        }
+
+        .action-btn-link .chevron {
+          margin-left: auto;
+          opacity: 0.3;
+          transition: opacity 0.2s ease;
+        }
+
+        .action-btn-link:hover .chevron {
+          opacity: 1;
+        }
+
+        .result-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          font-weight: 600;
+          font-size: 0.95rem;
+        }
+
+        .result-badge.clean {
+          background: rgba(34, 197, 94, 0.1);
+          color: #4ade80;
+          border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .result-badge.conflict {
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .info-pre.error {
+          border-left: 3px solid #f87171;
+          background: rgba(239, 68, 68, 0.05);
+        }
+
+        .info-pre.success {
+          border-left: 3px solid #4ade80;
+          background: rgba(34, 197, 94, 0.05);
+        }
+
+        .conflict-details-preview {
+          margin-bottom: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .conflict-line {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #f87171;
+          font-size: 0.85rem;
+          font-family: 'Inter', sans-serif;
+          background: rgba(239, 68, 68, 0.05);
+          padding: 0.5rem 0.75rem;
+          border-radius: 6px;
+          border: 1px dashed rgba(239, 68, 68, 0.2);
+        }
+
+        .log-expand-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .toggle-log-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: none;
+          border: none;
+          color: #94a3b8;
+          font-size: 0.8rem;
+          cursor: pointer;
+          width: fit-content;
+          padding: 0.25rem 0;
+          transition: color 0.2s;
+        }
+
+        .toggle-log-btn:hover {
+          color: #f6f6f6;
+        }
+
+        .rotate-90 {
+          transform: rotate(90deg);
+        }
+
+        .symbols-accordion {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+        }
+
+        .symbols-table-container {
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: none;
+          border-bottom-left-radius: 8px;
+          border-bottom-right-radius: 8px;
+          padding: 0.5rem;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+
+        .symbols-mini-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.75rem;
+        }
+
+        .symbols-mini-table th {
+          text-align: left;
+          padding: 0.4rem;
+          color: rgba(255, 255, 255, 0.4);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          font-weight: 500;
+        }
+
+        .symbols-mini-table td {
+          padding: 0.4rem;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .symbol-type-tag {
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+
+        .symbol-type-tag.action {
+          background: rgba(59, 130, 246, 0.1);
+          color: #60a5fa;
+        }
+
+        .symbol-type-tag.individual {
+          background: rgba(168, 85, 247, 0.1);
+          color: #c084fc;
+        }
+
+        .action-btn-link.expanded {
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          background: rgba(255, 255, 255, 0.06);
+        }
+
         .pulse-icon { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .fade-in { animation: fadeIn 0.5s ease-out; }

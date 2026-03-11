@@ -70,6 +70,8 @@ interface AnalysisContextType {
     setResults: React.Dispatch<React.SetStateAction<BatchResult[]>>;
     setLogs: React.Dispatch<React.SetStateAction<BatchLogEntry[]>>;
     addLog: (message: string, type?: "info" | "success" | "error") => void;
+    batchCsvPath: string;
+    setBatchCsvPath: (path: string) => void;
   };
 }
 
@@ -101,6 +103,7 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [batchCurrentFile, setBatchCurrentFile] = useState("");
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
   const [batchLogs, setBatchLogs] = useState<BatchLogEntry[]>([]);
+  const [batchCsvPath, setBatchCsvPath] = useState("");
 
   const addBatchLog = useCallback((message: string, type: "info" | "success" | "error" = "info") => {
     const entry: BatchLogEntry = {
@@ -138,7 +141,9 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else if (event.payload.status === "Success") {
         addBatchLog(`Completed: ${fileName}`, "success");
         if (event.payload.result) {
-          const parts = event.payload.result.split(";");
+          const [csvPart, summaryPart] = event.payload.result.split(";SUMMARY_DATA:");
+          const parts = csvPart.split(";");
+          
           const newResult: BatchResult = {
             file: event.payload.file,
             time_ms: parts[0] || event.payload.time_ms?.toString() || "-",
@@ -151,7 +156,7 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             automaton_size: parts[7] || "-",
             max_memory: parts[8] || "-",
             status: "Success",
-            info: "",
+            info: summaryPart || "",
           };
           setBatchResults((prev) => [...prev, newResult]);
         }
@@ -211,6 +216,8 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setResults: setBatchResults,
       setLogs: setBatchLogs,
       addLog: addBatchLog,
+      batchCsvPath,
+      setBatchCsvPath,
     }
   };
 

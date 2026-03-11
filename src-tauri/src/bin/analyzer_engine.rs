@@ -109,9 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         analyzer_logger.log(LogType::Necessary, &format!("Minimized automaton exported to {}", path));
     }
 
-    if config.is_test() {
-        println!("RESULT_CSV:{}", data);
-    }
+    println!("RESULT_CSV:{}", data);
 
     Ok(())
 }
