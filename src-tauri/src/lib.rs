@@ -54,7 +54,13 @@ async fn select_directory(app: tauri::AppHandle) -> Result<Option<String>, Strin
 }
 
 #[tauri::command]
-async fn run_batch_analysis(app: tauri::AppHandle, folder_path: String) -> Result<String, String> {
+async fn run_batch_analysis(
+    app: tauri::AppHandle, 
+    folder_path: String,
+    export_automaton: bool,
+    export_min_automaton: bool,
+    use_pruning: bool
+) -> Result<String, String> {
     let state = app.state::<AnalysisState>();
     
     // Clear stop flag before starting
@@ -124,9 +130,21 @@ async fn run_batch_analysis(app: tauri::AppHandle, folder_path: String) -> Resul
 
         let sidecar = app.shell().sidecar("analyzer").map_err(|e| e.to_string())?;
         
+        let mut args = vec![file_path.clone(), "-t".to_string()];
+        
+        if export_automaton {
+            args.push("-g".to_string());
+        }
+        if export_min_automaton {
+            args.push("-m".to_string());
+        }
+        if !use_pruning {
+            args.push("-n".to_string());
+        }
+
         // Use spawn to allow killing the process later
         let (mut rx, child) = sidecar
-            .args([file_path, "-t"])
+            .args(args)
             .spawn()
             .map_err(|e| format!("Failed to spawn batch sidecar: {}", e))?;
 
@@ -230,7 +248,7 @@ async fn run_batch_analysis(app: tauri::AppHandle, folder_path: String) -> Resul
     Ok(format!("Batch analysis completed. Results saved to {}", results_path.display()))
 }
 
-async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
+async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool, use_pruning: bool) -> Result<String, String> {
     use tauri_plugin_shell::ShellExt;
     use tauri_plugin_shell::process::CommandEvent;
     use std::sync::{Arc, Mutex};
@@ -250,6 +268,10 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 
     if export_min_automaton {
         args.push("-m".to_string());
+    }
+
+    if !use_pruning {
+        args.push("-n".to_string());
     }
 
     let (mut rx, child) = sidecar
@@ -417,11 +439,11 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 }
 
 #[tauri::command]
-async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool) -> Result<String, String> {
+async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool, use_pruning: bool) -> Result<String, String> {
     if !std::path::Path::new(&path).exists() {
         return Err(format!("File not found: {}", path));
     }
-    run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton).await
+    run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton, use_pruning).await
 }
 
 #[tauri::command]
@@ -431,6 +453,7 @@ async fn analyze_text(
     mode: String,
     export_automaton: bool,
     export_min_automaton: bool,
+    use_pruning: bool,
     origin_path: Option<String>,
 ) -> Result<String, String> {
     use std::path::PathBuf;
@@ -454,6 +477,7 @@ async fn analyze_text(
         mode,
         export_automaton,
         export_min_automaton,
+        use_pruning,
     )
     .await;
 

@@ -16,7 +16,11 @@ import {
   Layout,
   ExternalLink,
   ChevronRight,
-  FileCog
+  FileCog,
+  Settings,
+  X,
+  ShieldCheck,
+  ZapOff
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
@@ -59,6 +63,8 @@ export function AnalysisPage() {
   const [isSymbolsExpanded, setIsSymbolsExpanded] = useState(false);
   const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const [isVirtualPath, setIsVirtualPath] = useState(false);
+  const [usePruning, setUsePruning] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -116,6 +122,7 @@ export function AnalysisPage() {
         mode: selectedMode,
         exportAutomaton: exportNormal,
         exportMinAutomaton: exportMin,
+        usePruning: usePruning,
         originPath: filePath || null,
       });
 
@@ -346,100 +353,126 @@ export function AnalysisPage() {
           >
             {isAnalyzing ? 'Stop Analysis' : 'Clear'}
           </button>
+
+          <button 
+            className="settings-toggle-btn"
+            onClick={() => setShowSettings(true)}
+            disabled={isAnalyzing}
+            title="Analysis Settings"
+          >
+            <Settings size={22} />
+          </button>
         </div>
+        {showSettings && (
+          <div className="settings-overlay fade-in" onClick={() => setShowSettings(false)}>
+            <div className="settings-dialog pop-in" onClick={e => e.stopPropagation()}>
+              <div className="settings-header">
+                <div className="title-with-icon">
+                  <Settings size={20} className="icon-purple" />
+                  <h3>Analysis Settings</h3>
+                </div>
+                <button className="close-dialog-btn" onClick={() => setShowSettings(false)}>
+                  <X size={20} />
+                </button>
+              </div>
 
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'flex-start', // Better alignment for radio group
-          marginTop: '0.5rem',
-          gap: '0.5rem',
-          paddingLeft: '1rem'
-        }}>
-          <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.6)' }}>Automaton export options:</h4>
-          
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              color: 'rgba(255, 255, 255, 0.8)'
-            }}>
-              <input 
-                type="radio" 
-                name="exportOption"
-                value="none"
-                checked={exportOption === 'none'} 
-                onChange={() => setExportOption('none')}
-                disabled={isAnalyzing}
-                style={{ cursor: 'pointer' }}
-              />
-              Don't export
-            </label>
+              <div className="settings-content">
+                <div className="settings-section">
+                  <h4>Automaton Export</h4>
+                  <p className="section-desc">Choose which automaton files should be generated during analysis.</p>
+                  
+                  <div className="export-options-list">
+                    <label className={`export-option-card ${exportOption === 'none' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="exportOption"
+                        value="none"
+                        checked={exportOption === 'none'} 
+                        onChange={() => setExportOption('none')}
+                      />
+                      <div className="option-info">
+                        <span className="option-title">Don't Export</span>
+                        <span className="option-desc">Fastest analysis, only results are kept.</span>
+                      </div>
+                    </label>
 
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              color: 'rgba(255, 255, 255, 0.8)'
-            }}>
-              <input 
-                type="radio" 
-                name="exportOption"
-                value="normal"
-                checked={exportOption === 'normal'} 
-                onChange={() => setExportOption('normal')}
-                disabled={isAnalyzing}
-                style={{ cursor: 'pointer' }}
-              />
-              Export automaton
-            </label>
+                    <label className={`export-option-card ${exportOption === 'normal' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="exportOption"
+                        value="normal"
+                        checked={exportOption === 'normal'} 
+                        onChange={() => setExportOption('normal')}
+                      />
+                      <div className="option-info">
+                        <span className="option-title">Standard Automaton</span>
+                        <span className="option-desc">Generates the .dot file for visualization.</span>
+                      </div>
+                    </label>
 
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              color: 'rgba(255, 255, 255, 0.8)'
-            }}>
-              <input 
-                type="radio" 
-                name="exportOption"
-                value="min"
-                checked={exportOption === 'min'} 
-                onChange={() => setExportOption('min')}
-                disabled={isAnalyzing}
-                style={{ cursor: 'pointer' }}
-              />
-              Export automaton (minimized)
-            </label>
+                    <label className={`export-option-card ${exportOption === 'min' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="exportOption"
+                        value="min"
+                        checked={exportOption === 'min'} 
+                        onChange={() => setExportOption('min')}
+                      />
+                      <div className="option-info">
+                        <span className="option-title">Minimal Automaton</span>
+                        <span className="option-desc">Generates a smaller, optimized version.</span>
+                      </div>
+                    </label>
 
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              color: 'rgba(255, 255, 255, 0.8)'
-            }}>
-              <input 
-                type="radio" 
-                name="exportOption"
-                value="both"
-                checked={exportOption === 'both'} 
-                onChange={() => setExportOption('both')}
-                disabled={isAnalyzing}
-                style={{ cursor: 'pointer' }}
-              />
-              Export both
-            </label>
+                    <label className={`export-option-card ${exportOption === 'both' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="exportOption"
+                        value="both"
+                        checked={exportOption === 'both'} 
+                        onChange={() => setExportOption('both')}
+                      />
+                      <div className="option-info">
+                        <span className="option-title">Both Formats</span>
+                        <span className="option-desc">Generate both standard and minimal .dot files.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="settings-section">
+                  <h4>Optimization</h4>
+                  <div className="pruning-toggle-wrapper">
+                    <label className={`pruning-checkbox-card ${usePruning ? 'active' : ''}`}>
+                      <div className="checkbox-header">
+                        <div className="checkbox-icon">
+                          {usePruning ? <ShieldCheck size={18} className="text-green" /> : <ZapOff size={18} className="text-gray" />}
+                        </div>
+                        <span className="checkbox-label">Use Pruning</span>
+                        <div className="custom-checkbox">
+                          <input 
+                            type="checkbox" 
+                            checked={usePruning}
+                            onChange={(e) => setUsePruning(e.target.checked)}
+                          />
+                          <span className="checkmark"></span>
+                        </div>
+                      </div>
+                      <p className="checkbox-desc">Apply aggressive pruning to reduce model size. Recommended for large contracts.</p>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-footer">
+                <button className="apply-btn" onClick={() => setShowSettings(false)}>
+                  Done
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
       
       <div className="section-header">
@@ -703,6 +736,14 @@ export function AnalysisPage() {
           gap: 1rem;
           justify-content: center;
         }
+        .button-row {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-top: 1rem;
+          flex-wrap: wrap;
+        }
+
         .clear-btn {
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
@@ -958,6 +999,235 @@ export function AnalysisPage() {
         .symbol-type-tag.individual {
           background: rgba(168, 85, 247, 0.1);
           color: #c084fc;
+        }
+
+        .settings-header {
+          padding: 1.5rem;
+          background: rgba(255, 255, 255, 0.02);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .title-with-icon {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .settings-toggle-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.8rem;
+          aspect-ratio: 1 / 1;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #fff;
+          opacity: 0.9;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .settings-toggle-btn:hover:not(:disabled) {
+          background: rgba(168, 85, 247, 0.15);
+          color: #fff;
+          opacity: 1;
+          border-color: rgba(168, 85, 247, 0.5);
+          transform: rotate(30deg) scale(1.05);
+        }
+
+        .settings-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 2rem;
+        }
+
+        .settings-dialog {
+          background: #1e293b;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          width: 100%;
+          max-width: 500px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .settings-header {
+          padding: 1.5rem 1.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .settings-header h3 { margin: 0; font-size: 1.2rem; }
+
+        .close-dialog-btn {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.4);
+          cursor: pointer;
+          padding: 0.5rem;
+          border-radius: 50%;
+          display: flex;
+          transition: all 0.2s;
+        }
+
+        .close-dialog-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+        }
+
+        .settings-content {
+          padding: 1.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          max-height: 70vh;
+          overflow-y: auto;
+        }
+
+        .settings-section h4 {
+          margin: 0 0 0.5rem 0;
+          font-size: 0.95rem;
+          color: #a855f7;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .section-desc {
+          margin: 0 0 1.25rem 0;
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .export-options-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .export-option-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .export-option-card:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .export-option-card.active {
+          background: rgba(168, 85, 247, 0.1);
+          border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        .export-option-card input[type="radio"] {
+          width: 18px; height: 18px; accent-color: #a855f7;
+        }
+
+        .option-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .option-title { font-weight: 600; font-size: 0.95rem; }
+        .option-desc { font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); }
+
+        .pruning-checkbox-card {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          padding: 1.25rem;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .pruning-checkbox-card.active {
+          background: rgba(34, 197, 94, 0.05);
+          border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        .checkbox-header {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .checkbox-label { flex: 1; font-weight: 600; font-size: 1rem; }
+        .checkbox-desc { margin: 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.4); padding-left: 2.75rem; }
+
+        .settings-footer {
+          padding: 1.25rem 1.75rem;
+          background: rgba(0, 0, 0, 0.2);
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .apply-btn {
+          padding: 0.75rem 2rem;
+          background: #6366f1;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .apply-btn:hover { background: #4f46e5; transform: translateY(-1px); }
+
+        .text-green { color: #4ade80; }
+        .text-gray { color: rgba(255, 255, 255, 0.2); }
+        .icon-purple { color: #a855f7; }
+
+        .custom-checkbox { position: relative; width: 20px; height: 20px; }
+        .custom-checkbox input { opacity: 0; width: 0; height: 0; }
+        .checkmark {
+          position: absolute; top: 0; left: 0; height: 20px; width: 20px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 5px;
+        }
+        .custom-checkbox input:checked ~ .checkmark { background: #22c55e; border-color: #22c55e; }
+        .checkmark:after {
+          content: ""; position: absolute; display: none;
+          left: 6px; top: 2px; width: 5px; height: 10px;
+          border: solid white; border-width: 0 2px 2px 0;
+          transform: rotate(45deg);
+        }
+        .custom-checkbox input:checked ~ .checkmark:after { display: block; }
+
+        .pop-in {
+          animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes pop-in {
+          from { transform: scale(0.9); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
         }
 
         .action-btn-link.expanded {
