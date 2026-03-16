@@ -756,11 +756,9 @@ export function AnalysisPage() {
           flex-wrap: wrap;
           justify-content: center;
           /* Force hardware acceleration and prevent clipping */
-          transform: translateZ(0);
-          will-change: transform, opacity;
+          transform: translate3d(0, 0, 0);
           backface-visibility: hidden;
           -webkit-backface-visibility: hidden;
-          perspective: 1000px;
         }
 
         .button-row button {

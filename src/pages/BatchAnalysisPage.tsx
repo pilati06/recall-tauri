@@ -549,11 +549,11 @@ export function BatchAnalysisPage() {
           display: flex;
           gap: 1rem;
           align-items: center;
-          /* Force hardware acceleration to prevent ghosting on Linux/macOS */
-          transform: translateZ(0);
-          will-change: transform, opacity;
+          /* Force hardware acceleration and prevent clipping */
+          transform: translate3d(0, 0, 0);
           backface-visibility: hidden;
           -webkit-backface-visibility: hidden;
+          isolation: isolate;
         }
 
         .stop-btn {

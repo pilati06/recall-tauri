@@ -77,13 +77,23 @@ button {
   /* Prevent macOS WebKit from rendering native button appearance on top of custom styles */
   -webkit-appearance: none;
   appearance: none;
+  outline: none !important; /* Kill platform-specific focus rings */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
   /* Specific transitions to prevent layout ghosting */
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  transform: translate3d(0, 0, 0); /* Force its own layer on individual buttons */
+}
+
+button:focus,
+button:focus-visible,
+button:active {
+  outline: none !important;
 }
 
 button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(100, 108, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.2);
   border-color: #646cff;
 }
 
@@ -95,8 +105,9 @@ button:disabled {
   transform: none !important;
   cursor: not-allowed;
   pointer-events: none;
-  /* Prevent browser-specific disabled styles from clipping transitions */
-  filter: saturate(0.8) contrast(0.9);
+  opacity: 0.5;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 pre {
