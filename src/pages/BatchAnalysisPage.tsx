@@ -549,6 +549,9 @@ export function BatchAnalysisPage() {
           display: flex;
           gap: 1rem;
           align-items: center;
+          /* Force hardware acceleration to prevent ghosting on Linux/macOS */
+          transform: translateZ(0);
+          will-change: transform;
         }
 
         .stop-btn {

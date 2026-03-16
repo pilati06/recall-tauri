@@ -733,15 +733,25 @@ export function AnalysisPage() {
         }
         .button-row {
           display: flex;
-          gap: 1rem;
-          justify-content: center;
-        }
-        .button-row {
-          display: flex;
           align-items: center;
           gap: 0.75rem;
-          margin-top: 1rem;
+          margin: 1rem 0 2rem 0;
           flex-wrap: wrap;
+          justify-content: center;
+          /* Force hardware acceleration to prevent ghosting on Linux/macOS */
+          transform: translateZ(0);
+          will-change: transform;
+        }
+
+        .button-row button {
+          min-width: 140px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .button-row .settings-toggle-btn {
+          min-width: unset;
         }
 
         .clear-btn {

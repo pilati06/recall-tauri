@@ -73,11 +73,12 @@ button {
   background: linear-gradient(135deg, #646cff 0%, #4b54e0 100%);
   color: white;
   cursor: pointer;
-  transition: all 0.25s ease;
   box-shadow: 0 4px 15px rgba(100, 108, 255, 0.2);
   /* Prevent macOS WebKit from rendering native button appearance on top of custom styles */
   -webkit-appearance: none;
   appearance: none;
+  /* Specific transitions to prevent layout ghosting */
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
 }
 
 button:hover {
