@@ -305,10 +305,22 @@ export function AnalysisPage() {
             opacity: isAnalyzing ? 0.7 : 1
           }}
         />
+        <div className="file-path-container" style={{
+          minHeight: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          transition: 'all 0.3s ease'
+        }}>
+          {filePath && !isVirtualPath && (
+            <p className="file-path-message fade-in" style={{ margin: 0, textAlign: 'center' }}>
+              Selected file: <strong>{filePath}</strong>
+            </p>
+          )}
+        </div>
         
-        {filePath && !isVirtualPath && <p style={{ textAlign: 'center' }}>Selected file: <strong>{filePath}</strong></p>}
-        
-        <div className="button-row">
+        <div className="button-row" style={{ isolation: 'isolate' }}>
           <button onClick={selectFile} 
           disabled={isAnalyzing}
           style={{
@@ -738,9 +750,12 @@ export function AnalysisPage() {
           margin: 1rem 0 2rem 0;
           flex-wrap: wrap;
           justify-content: center;
-          /* Force hardware acceleration to prevent ghosting on Linux/macOS */
+          /* Force hardware acceleration and prevent clipping */
           transform: translateZ(0);
-          will-change: transform;
+          will-change: transform, opacity;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          perspective: 1000px;
         }
 
         .button-row button {
@@ -1264,7 +1279,10 @@ export function AnalysisPage() {
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         
-        .spin { animation: spin 1s linear infinite; }
+        .spin { 
+          animation: spin 1s linear infinite; 
+          will-change: transform;
+        }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
