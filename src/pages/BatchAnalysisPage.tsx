@@ -541,7 +541,7 @@ export function BatchAnalysisPage() {
         .folder-input-group { display: flex; gap: 0.75rem; }
         .folder-input-group input { flex: 1; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(15, 23, 42, 0.6); color: #f8fafc; }
         .browse-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; cursor: pointer; }
-        .start-btn { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 0 2rem; border-radius: 10px; border: none; background: #6366f1; color: white; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+        .start-btn { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 0 2rem; border-radius: 10px; border: none; background: #6366f1; color: white; font-weight: 700; cursor: pointer; transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
         .start-btn:hover:not(:disabled) { background: #4f46e5; transform: translateY(-1px); }
         .start-btn.analyzing { background: #0ea5e9; flex: 2; }
         
@@ -551,7 +551,9 @@ export function BatchAnalysisPage() {
           align-items: center;
           /* Force hardware acceleration to prevent ghosting on Linux/macOS */
           transform: translateZ(0);
-          will-change: transform;
+          will-change: transform, opacity;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
         }
 
         .stop-btn {
@@ -568,7 +570,7 @@ export function BatchAnalysisPage() {
           border-radius: 10px;
           cursor: pointer;
           font-weight: 700;
-          transition: all 0.2s ease;
+          transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
         }
 
         .stop-btn:hover {

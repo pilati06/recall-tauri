@@ -81,14 +81,22 @@ button {
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(100, 108, 255, 0.3);
   border-color: #646cff;
 }
 
-button:active {
+button:active:not(:disabled) {
   transform: translateY(0);
+}
+
+button:disabled {
+  transform: none !important;
+  cursor: not-allowed;
+  pointer-events: none;
+  /* Prevent browser-specific disabled styles from clipping transitions */
+  filter: saturate(0.8) contrast(0.9);
 }
 
 pre {

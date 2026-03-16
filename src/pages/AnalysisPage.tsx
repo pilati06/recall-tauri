@@ -325,10 +325,15 @@ export function AnalysisPage() {
           disabled={isAnalyzing}
           style={{
               padding: '0.8rem 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
               opacity: isAnalyzing ? 0.5 : 1,
               cursor: isAnalyzing ? 'not-allowed' : 'pointer'
             }}>
-            Select File
+            <FolderOpen size={20} />
+            <span>Select File</span>
           </button>
           <button 
             onClick={runAnalysis}
