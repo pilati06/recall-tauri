@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAnalysisContext } from "../context/AnalysisContext";
@@ -49,9 +49,7 @@ export function AnalysisPage() {
   const {
     resultMsg, setResultMsg,
     filePath, setFilePath,
-    logs, setLogs,
     pastedText, setPastedText,
-    logsVisible, setLogsVisible,
     isAnalyzing, setIsAnalyzing,
   } = singleAnalysis;
 
@@ -65,13 +63,6 @@ export function AnalysisPage() {
   const [isVirtualPath, setIsVirtualPath] = useState(false);
   const [usePruning, setUsePruning] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (logsVisible && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [logs, logsVisible]);
 
   async function selectFile() {
     try {
@@ -84,7 +75,6 @@ export function AnalysisPage() {
         const pathString = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
         setFilePath(pathString);
         setIsVirtualPath(false);
-        setLogs([]); // Clear previous logs
         setResultMsg("");
 
         // Load file content into textarea
@@ -110,7 +100,6 @@ export function AnalysisPage() {
     }
 
     setIsAnalyzing(true);
-    setLogs([]); 
     setResultMsg("Processing Contract...");
 
     try {
@@ -686,54 +675,6 @@ export function AnalysisPage() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0 }}>Full Execution Log</h3>
-            <button 
-              onClick={() => setLogsVisible(!logsVisible)}
-              style={{ padding: '4px 12px', fontSize: '0.75rem', boxShadow: 'none' }}
-            >
-              {logsVisible ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          
-          {logsVisible && (
-            <div style={{ 
-              height: '400px', 
-              overflowY: 'auto', 
-              background: '#1e1e1e', 
-              color: '#d4d4d4', 
-              padding: '1rem', 
-              borderRadius: '12px',
-              fontSize: '0.8rem',
-              fontFamily: 'monospace',
-              textAlign: 'left',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
-            }}>
-              {logs.length === 0 ? (
-                <div style={{ color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', marginTop: '2rem' }}>
-                  No logs generated yet.
-                </div>
-              ) : (
-                logs.map((log, i) => (
-                  <div key={i} style={{ marginBottom: '4px' }}>
-                    <span style={{ color: '#569cd6' }}>[{log.date}]</span>{' '}
-                    <span style={{ 
-                      color: log.log_type === 'Minimal' ? '#4fc1ff' : 
-                             log.log_type === 'Necessary' ? '#dcdcaa' : '#b5cea8'
-                    }}>[{log.log_type}]</span>:{' '}
-                    {log.message}
-                  </div>
-                ))
-              )}
-              <div ref={logsEndRef} />
-            </div>
-          )}
-        </div>
-      </div>
 
       <style>{`
         .analysis-page {
