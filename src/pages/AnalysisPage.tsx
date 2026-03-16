@@ -240,7 +240,6 @@ export function AnalysisPage() {
     setPastedText("");
     setFilePath("");
     setResultMsg("");
-    setLogs([]);
     setParsedResult(null);
     setRelatedFiles({});
     setSymbols([]);
