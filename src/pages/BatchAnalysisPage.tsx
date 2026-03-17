@@ -88,8 +88,31 @@ export function BatchAnalysisPage() {
     }
   };
 
-  const getConflictLines = (info: string) => {
-    return info.split('\n').filter(line => line.trim().startsWith('Conflict:'));
+
+  const getDetailedConflicts = (info: string) => {
+    const blocks = info.split('-------------------------------------------------------');
+    const conflicts = [];
+    
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i].trim();
+      if (block.startsWith('Conflict found in state')) {
+        const summaryMatch = block.match(/Conflict:\s*(.+)/);
+        const summary = summaryMatch ? summaryMatch[1].trim() : "Unknown conflict";
+        
+        let trace = "";
+        let stacktrace = "";
+        
+        if (i + 1 < blocks.length && blocks[i + 1].trim().startsWith('Trace:')) {
+          trace = blocks[i + 1].trim().replace('Trace:', '').trim();
+          if (i + 2 < blocks.length && blocks[i + 2].trim().startsWith('Stacktrace:')) {
+            stacktrace = blocks[i + 2].trim().replace('Stacktrace:', '').trim();
+          }
+        }
+        
+        conflicts.push({ summary, trace, stacktrace });
+      }
+    }
+    return conflicts;
   };
 
   useEffect(() => {
@@ -483,11 +506,27 @@ export function BatchAnalysisPage() {
                   </div>
 
                   {selectedResult.conflicting === 'Yes' && (
-                    <div className="conflict-details-preview fade-in">
-                      {getConflictLines(selectedResult.info).map((line, i) => (
-                        <div key={i} className="conflict-line">
-                          <AlertTriangle size={12} />
-                          <span>{line.replace('Conflict:', '').trim()}</span>
+                    <div className="conflict-details-container fade-in">
+                      {getDetailedConflicts(selectedResult.info).map((conflict, i) => (
+                        <div key={i} className="detailed-conflict-card">
+                          <div className="conflict-card-header">
+                            <AlertTriangle size={14} className="icon-orange" />
+                            <span className="conflict-summary">{conflict.summary}</span>
+                          </div>
+                          
+                          {conflict.trace && (
+                            <div className="conflict-sub-section">
+                              <label><Zap size={10} /> Trace</label>
+                              <pre className="trace-pre">{conflict.trace}</pre>
+                            </div>
+                          )}
+
+                          {conflict.stacktrace && (
+                            <div className="conflict-sub-section">
+                              <label><Layout size={10} /> Stacktrace</label>
+                              <pre className="stacktrace-pre">{conflict.stacktrace}</pre>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -512,6 +551,76 @@ export function BatchAnalysisPage() {
           font-size: 1.25rem;
           font-weight: 700;
         }
+
+        .conflict-details-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .detailed-conflict-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 152, 0, 0.2);
+          border-radius: 12px;
+          padding: 1.25rem;
+          text-align: left;
+          transition: transform 0.2s ease;
+        }
+
+        .detailed-conflict-card:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 152, 0, 0.4);
+        }
+
+        .conflict-card-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+
+        .conflict-summary {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: #ffb74d;
+          line-height: 1.4;
+        }
+
+        .icon-orange { color: #ffa726; flex-shrink: 0; margin-top: 2px; }
+
+        .conflict-sub-section {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .conflict-sub-section label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: rgba(255, 255, 255, 0.4);
+          margin-bottom: 0.5rem;
+        }
+
+        .trace-pre, .stacktrace-pre {
+          background: rgba(0, 0, 0, 0.2);
+          padding: 0.75rem;
+          border-radius: 6px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.8rem;
+          margin: 0;
+          white-space: pre-wrap;
+          word-break: break-all;
+          color: #d4d4d4;
+          line-height: 1.5;
+        }
+
+        .trace-pre { color: #9cdcfe; }
+        .stacktrace-pre { color: #ce9178; }
 
         .batch-analysis-page {
           max-width: 900px;
@@ -741,9 +850,9 @@ export function BatchAnalysisPage() {
         }
 
         .result-badge.conflict {
-          background: rgba(239, 68, 68, 0.1);
-          color: #f87171;
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          color: #fbbf24;
+          border: 1px solid rgba(255, 152, 0, 0.2);
         }
 
         .info-pre.error {
