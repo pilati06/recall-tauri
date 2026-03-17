@@ -1030,6 +1030,7 @@ export function AnalysisPage() {
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          text-align: left;
         }
 
         .settings-header {
@@ -1146,7 +1147,7 @@ export function AnalysisPage() {
         }
 
         .checkbox-label { flex: 1; font-weight: 600; font-size: 1rem; }
-        .checkbox-desc { margin: 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.4); padding-left: 2.75rem; }
+        .checkbox-desc { margin: 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.4); padding-left: 2.15rem; }
 
         .settings-footer {
           padding: 1.25rem 1.75rem;
