@@ -103,6 +103,10 @@ export function BatchAnalysisPage() {
       const selected = await invoke<string | null>("select_directory");
       if (selected) {
         setFolderPath(selected);
+        setResults([]);
+        setLogs([]);
+        setProgress(0);
+        setBatchCsvPath("");
         addLog(`Selected folder: ${selected}`, "info");
       }
     } catch (err) {
