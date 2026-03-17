@@ -305,7 +305,7 @@ export function BatchAnalysisPage() {
                     </td>
                     <td>
                       <span className={`status-simple ${res.status.toLowerCase()}`}>
-                        {res.status}
+                        {res.status === 'Error' ? 'Failed' : 'Success'}
                       </span>
                     </td>
                     <td className="mono">
