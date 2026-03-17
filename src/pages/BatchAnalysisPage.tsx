@@ -275,8 +275,7 @@ export function BatchAnalysisPage() {
                   <th style={{ minWidth: '150px' }}>Conflicts</th>
                   <th>Status</th>
                   <th>Time</th>
-                  <th>States</th>
-                  <th>Actions</th>
+                  <th>Max Memory</th>
                   <th style={{ textAlign: 'center' }}>Details</th>
                 </tr>
               </thead>
@@ -312,8 +311,7 @@ export function BatchAnalysisPage() {
                     <td className="mono">
                       {res.time_ms !== "-" ? (parseFloat(res.time_ms) / 1000).toFixed(3) + 's' : "-"}
                     </td>
-                    <td className="mono">{res.states}</td>
-                    <td className="mono">{res.actions}</td>
+                    <td className="mono">{res.max_memory} MB</td>
                     <td style={{ textAlign: 'center' }}>
                        <button className="view-details-pill">View</button>
                     </td>
