@@ -242,7 +242,15 @@ async fn run_batch_analysis(
         }
     }
 
-    let results_path = Path::new(&folder_path).join("batch_results.csv");
+    let folder_name = Path::new(&folder_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("batch_results");
+    
+    let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let results_filename = format!("{}_{}.csv", folder_name, timestamp);
+    let results_path = Path::new(&folder_path).join(results_filename);
+    
     fs::write(&results_path, &csv_results).map_err(|e| format!("Failed to save results: {}", e))?;
 
     Ok(format!("Batch analysis completed. Results saved to {}", results_path.display()))
