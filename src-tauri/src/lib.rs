@@ -454,6 +454,18 @@ async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, 
     run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton, use_pruning).await
 }
 
+fn get_next_versioned_stem(parent: &Path, stem: &str) -> String {
+    let mut n = 1;
+    loop {
+        let name = format!("{} ({})", stem, n);
+        let path = parent.join(format!("{}.rcl", name));
+        if !path.exists() {
+            return name;
+        }
+        n += 1;
+    }
+}
+
 #[tauri::command]
 async fn analyze_text(
     app_handle: tauri::AppHandle,
@@ -466,10 +478,75 @@ async fn analyze_text(
 ) -> Result<String, String> {
     use std::path::PathBuf;
 
-    // Always write the analysis content to a TEMP file with a unique name.
-    // This ensures we NEVER touch the original file (avoiding modification date changes).
+    // 1. Determine if the content has changed or is new
+    let mut has_changed = true;
+    let mut original_stem = String::from("contract");
+    let mut base_output_dir: Option<PathBuf> = None;
+
+    if let Some(ref orig) = origin_path {
+        let orig_path = std::path::Path::new(orig);
+        if orig_path.exists() {
+            if let Ok(orig_content) = fs::read_to_string(orig_path) {
+                if orig_content.trim() == text.trim() {
+                    has_changed = false;
+                }
+            }
+            // Strip any existing version numbers like " (1)" OR timestamps like "_2024..." from the stem for base matching
+            let stem_full = orig_path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("contract");
+            
+            let re_v = regex::Regex::new(r"\s\(\d+\)$").unwrap();
+            let re_ts = regex::Regex::new(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$").unwrap();
+            
+            let stem_no_v = re_v.replace(stem_full, "").to_string();
+            original_stem = re_ts.replace(&stem_no_v, "").to_string();
+            
+            base_output_dir = orig_path.parent().map(|p| p.to_path_buf());
+        }
+    }
+
+    // 2. Generate unique and base names for this analysis run
     let ts = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let temp_stem = format!("recall_analysis_{}", ts);
+    let base_recall_stem = String::from("recall_analysis"); // Used when no original file
+    
+    // Resolve final output directory and stems
+    let re_ts = regex::Regex::new(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$").unwrap();
+    let re_v = regex::Regex::new(r"\s\(\d+\)$").unwrap();
+
+    let (output_dir, _output_stem_no_ts, output_stem_for_rcl, output_stem_ts): (PathBuf, String, String, String) = if let Some(parent) = base_output_dir {
+        // Case 1 & 2: Selected file
+        let current_stem = Path::new(origin_path.as_ref().unwrap()).file_stem().and_then(|s| s.to_str()).unwrap_or(&original_stem).to_string();
+        
+        if has_changed {
+            // If the current file is already versioned, we keep the SAME versioned name (overwrite)
+            // Otherwise, we create a NEW version (increment)
+            let stem_for_rcl = if re_v.is_match(&current_stem) {
+                current_stem.clone()
+            } else {
+                get_next_versioned_stem(&parent, &original_stem)
+            };
+            
+            let stem_ts = format!("{}_{}", re_ts.replace(&stem_for_rcl, ""), ts);
+            (parent, original_stem, stem_for_rcl, stem_ts)
+        } else {
+            // Unchanged: use the CURRENT stem
+            let current_stem_no_ts = re_ts.replace(&current_stem, "").to_string();
+            let stem_ts = format!("{}_{}", current_stem_no_ts, ts);
+            (parent, original_stem, current_stem, stem_ts)
+        }
+    } else {
+        // Case 3: Pasted contract (no original file) -> use TIMESTAMP for rcl to avoid overwriting
+        let docs_dir: PathBuf = dirs::document_dir()
+            .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
+            .unwrap_or_else(|| std::env::temp_dir());
+        let recall_dir = docs_dir.join("Recall");
+        let stem_ts = format!("{}_{}", base_recall_stem, ts);
+        (recall_dir, base_recall_stem.clone(), stem_ts.clone(), stem_ts)
+    };
+
+    // 3. Always write analysis content to a TEMP file first
     let temp_dir = std::env::temp_dir();
     let temp_rcl = temp_dir.join(format!("{}.rcl", temp_stem));
     let temp_rcl_str = temp_rcl.to_string_lossy().to_string();
@@ -477,8 +554,7 @@ async fn analyze_text(
     fs::write(&temp_rcl, &text)
         .map_err(|e| format!("Failed to create temp analysis file: {}", e))?;
 
-    // Run the analysis using the temp file path.
-    // analyzer_engine will create outputs (*.result, *.log, *.dot) next to the temp .rcl.
+    // 4. Run the analysis using the temp file path
     let result = run_analysis_internal(
         app_handle,
         temp_rcl_str.clone(),
@@ -489,53 +565,40 @@ async fn analyze_text(
     )
     .await;
 
-    // --- Resolve the final output directory and stem ---
-    // With origin_path: outputs go next to the original file, named after it.
-    // Without origin_path: outputs go to ~/Documents/Recall/ with a timestamp name.
-    let (output_dir, output_stem): (PathBuf, String) = if let Some(ref orig) = origin_path {
-        let orig_path = std::path::Path::new(orig);
-        let parent = orig_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| temp_dir.clone());
-        let stem = orig_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("contract")
-            .to_string();
-        (parent, stem)
-    } else {
-        let docs_dir: PathBuf = dirs::document_dir()
-            .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
-            .unwrap_or_else(|| temp_dir.clone());
-        let recall_dir = docs_dir.join("Recall");
-        (recall_dir, temp_stem.clone())
-    };
-
-    // Ensure output directory exists before copying
+    // 5. Ensure output directory exists
     if let Err(e) = fs::create_dir_all(&output_dir) {
-        // Don't fail the whole analysis if we can't create the output dir
         eprintln!("Warning: could not create output dir '{}': {}", output_dir.display(), e);
     } else {
-        // Copy temp outputs to the final destination with the correct names.
-        // We always copy .result and .log (produced by the analyzer logger).
-        let files_to_copy: &[(&str, &str)] = &[
-            (&format!("{}.result", temp_stem), &format!("{}.result", output_stem)),
-            (&format!("{}.log",    temp_stem), &format!("{}.log",    output_stem)),
-        ];
-        for (src_name, dst_name) in files_to_copy {
-            let src = temp_dir.join(src_name);
-            let dst = output_dir.join(dst_name);
-            if src.exists() {
-                let _ = fs::copy(&src, &dst);
-                let _ = fs::remove_file(&src);
+        // 6. Copy temp outputs (.result, .log) to final destination
+        
+        // Log is special: APPEND to the log corresponding to the current rcl version
+        let src_log = temp_dir.join(format!("{}.log", temp_stem));
+        let dst_log = output_dir.join(format!("{}.log", output_stem_for_rcl));
+        if src_log.exists() {
+            if let Ok(log_content) = fs::read(&src_log) {
+                use std::io::Write;
+                let mut options = fs::OpenOptions::new();
+                options.create(true).append(true);
+                if let Ok(mut file) = options.open(&dst_log) {
+                    let _ = writeln!(file, "\n--- Analysis Execution: {} ---", ts);
+                    let _ = file.write_all(&log_content);
+                }
             }
+            let _ = fs::remove_file(&src_log);
+        }
+
+        // Result and others: always WITH timestamp, based on the versioned stem
+        let src_res = temp_dir.join(format!("{}.result", temp_stem));
+        let dst_res = output_dir.join(format!("{}.result", output_stem_ts));
+        if src_res.exists() {
+            let _ = fs::copy(&src_res, &dst_res);
+            let _ = fs::remove_file(&src_res);
         }
 
         // Conditionally copy .dot / _min.dot
         if export_automaton {
             let src = temp_dir.join(format!("{}.dot", temp_stem));
-            let dst = output_dir.join(format!("{}.dot", output_stem));
+            let dst = output_dir.join(format!("{}.dot", output_stem_ts));
             if src.exists() {
                 let _ = fs::copy(&src, &dst);
                 let _ = fs::remove_file(&src);
@@ -543,11 +606,17 @@ async fn analyze_text(
         }
         if export_min_automaton {
             let src = temp_dir.join(format!("{}_min.dot", temp_stem));
-            let dst = output_dir.join(format!("{}_min.dot", output_stem));
+            let dst = output_dir.join(format!("{}_min.dot", output_stem_ts));
             if src.exists() {
                 let _ = fs::copy(&src, &dst);
                 let _ = fs::remove_file(&src);
             }
+        }
+
+        // 7. Save the .rcl contract itself WITH versioning (only if modified or new)
+        if has_changed || origin_path.is_none() {
+            let dst_rcl = output_dir.join(format!("{}.rcl", output_stem_for_rcl));
+            let _ = fs::write(&dst_rcl, &text);
         }
     }
 
@@ -556,7 +625,7 @@ async fn analyze_text(
 
     match result {
         Ok(res) => {
-            let final_rcl_path = output_dir.join(format!("{}.rcl", output_stem));
+            let final_rcl_path = output_dir.join(format!("{}.rcl", output_stem_for_rcl));
             Ok(format!("{};FILES_PATH:{}", res, final_rcl_path.to_string_lossy()))
         },
         Err(e) => Err(e)
@@ -609,20 +678,78 @@ async fn get_related_files(path: String) -> HashMap<String, String> {
         return related;
     }
 
-    let extensions = vec!["log", "result", "dot", "csv"];
-    for ext in extensions {
-        let file_path = parent.join(format!("{}.{}", stem, ext));
+    let extensions = vec!["log", "result", "dot", "csv", "min_dot"];
+    
+    // Regex for timestamp: _YYYY-MM-DD_HH-MM-SS
+    let re_ts = regex::Regex::new(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$").unwrap();
+    // Regex for version: (N)
+    let re_v = regex::Regex::new(r"\s\(\d+\)$").unwrap();
+    
+    let stem_no_ts = re_ts.replace(stem, "").to_string();
+    let base_stem = re_v.replace(&stem_no_ts, "").to_string();
+
+    for ext_key in extensions {
+        let ext = if ext_key == "min_dot" { "dot" } else { ext_key };
+        
+        let file_path = if ext_key == "log" {
+            // Log logic: try direct match, versioned log, then base log
+            let logs_to_try = vec![
+                parent.join(format!("{}.log", stem)),
+                parent.join(format!("{}.log", stem_no_ts)),
+                parent.join(format!("{}.log", base_stem)),
+            ];
+            
+            let mut found_log = logs_to_try[0].clone();
+            for log in logs_to_try {
+                if log.exists() {
+                    found_log = log;
+                    break;
+                }
+            }
+            found_log
+        } else {
+            // Other files use the current stem
+            let current_stem = stem;
+            if ext_key == "min_dot" {
+                parent.join(format!("{}_min.dot", current_stem))
+            } else {
+                parent.join(format!("{}.{}", current_stem, ext))
+            }
+        };
+
         if file_path.exists() {
-            related.insert(ext.to_string(), file_path.to_string_lossy().to_string());
+            related.insert(ext_key.to_string(), file_path.to_string_lossy().to_string());
+        } else if ext_key != "log" {
+            // If not found and not a log, look for the MOST RECENT timestamped version
+            // Note: we strip any existing TS from 'stem' to keep results tied to the base version (e.g. "contract (1)_TS.result")
+            let stem_prefix = re_ts.replace(stem, "").to_string();
+            if let Ok(entries) = fs::read_dir(parent) {
+                let mut matches = Vec::new();
+                let pattern = if ext_key == "min_dot" {
+                    format!(r"{}(_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}-\d{{2}}-\d{{2}})_min\.dot$", regex::escape(&stem_prefix))
+                } else {
+                    format!(r"{}(_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}-\d{{2}}-\d{{2}})\.{}$", regex::escape(&stem_prefix), regex::escape(ext))
+                };
+                if let Ok(re_file) = regex::Regex::new(&pattern) {
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        if re_file.is_match(&name) {
+                            if let Ok(meta) = entry.metadata() {
+                                if let Ok(modified) = meta.modified() {
+                                    matches.push((modified, entry.path().to_string_lossy().to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+                matches.sort_by(|a, b| b.0.cmp(&a.0)); // Newest first
+                if let Some((_, path)) = matches.into_iter().next() {
+                    related.insert(ext_key.to_string(), path);
+                }
+            }
         }
     }
     
-    // Special case for minimized automaton
-    let min_dot = parent.join(format!("{}_min.dot", stem));
-    if min_dot.exists() {
-        related.insert("min_dot".to_string(), min_dot.to_string_lossy().to_string());
-    }
-
     related
 }
 
@@ -638,8 +765,53 @@ async fn get_symbol_table(file_path: String) -> Result<Vec<SymbolEntry>, String>
         return Err("Invalid file path".to_string());
     }
 
-    let result_path = parent.join(format!("{}.result", stem));
-    let log_path = parent.join(format!("{}.log", stem));
+    let mut result_path = parent.join(format!("{}.result", stem));
+    
+    // Regexes
+    let re_ts = regex::Regex::new(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$").unwrap();
+    let re_v = regex::Regex::new(r"\s\(\d+\)$").unwrap();
+    
+    let stem_no_ts = re_ts.replace(stem, "").to_string();
+    let base_stem = re_v.replace(&stem_no_ts, "").to_string();
+    
+    // Try direct stem first, then versioned, then base
+    let logs_to_try = vec![
+        parent.join(format!("{}.log", stem)),
+        parent.join(format!("{}.log", stem_no_ts)),
+        parent.join(format!("{}.log", base_stem)),
+    ];
+    let mut log_path = logs_to_try[0].clone();
+    for log in logs_to_try {
+        if log.exists() {
+            log_path = log;
+            break;
+        }
+    }
+
+    // Fallback for result_path if it doesn't exist (e.g. searching from original rcl)
+    if !result_path.exists() {
+        if let Ok(entries) = fs::read_dir(parent) {
+            let mut matches = Vec::new();
+            let stem_prefix = re_ts.replace(stem, "").to_string();
+            let pattern = format!(r"{}(_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}-\d{{2}}-\d{{2}})\.result$", regex::escape(&stem_prefix));
+            if let Ok(re_file) = regex::Regex::new(&pattern) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if re_file.is_match(&name) {
+                        if let Ok(meta) = entry.metadata() {
+                            if let Ok(modified) = meta.modified() {
+                                matches.push((modified, entry.path()));
+                            }
+                        }
+                    }
+                }
+            }
+            matches.sort_by(|a, b| b.0.cmp(&a.0));
+            if let Some((_, path)) = matches.into_iter().next() {
+                result_path = path;
+            }
+        }
+    }
 
     let content = if result_path.exists() {
         fs::read_to_string(&result_path).map_err(|e| e.to_string())?

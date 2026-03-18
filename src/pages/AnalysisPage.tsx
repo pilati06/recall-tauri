@@ -63,6 +63,7 @@ export function AnalysisPage() {
   const [isVirtualPath, setIsVirtualPath] = useState(false);
   const [usePruning, setUsePruning] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [originalContent, setOriginalContent] = useState("");
 
   async function selectFile() {
     try {
@@ -81,6 +82,7 @@ export function AnalysisPage() {
         try {
           const content = await invoke("read_file", { path: pathString });
           setPastedText(String(content));
+          setOriginalContent(String(content));
           setResultMsg("File loaded. Click 'Run Analysis' to start.");
         } catch (readError) {
           console.error("Erro ao ler conteúdo do arquivo:", readError);
@@ -119,9 +121,10 @@ export function AnalysisPage() {
       if (response.includes(";FILES_PATH:")) {
         const [cleanRes, fPath] = response.split(";FILES_PATH:");
         finalResponse = cleanRes;
-        if (!filePath) { // Only update if we didn't start with a file
+        if (fPath) {
           setFilePath(fPath);
-          setIsVirtualPath(true);
+          // Now that it has a real file path returned from backend, it's no longer virtual
+          setIsVirtualPath(false);
         }
       }
 
@@ -151,6 +154,7 @@ export function AnalysisPage() {
         
         if (hasSummary) {
           setResultMsg("Analysis completed successfully.");
+          setOriginalContent(pastedText);
         } else {
           setResultMsg(dataPart || "Analysis failed.");
         }
@@ -297,17 +301,14 @@ export function AnalysisPage() {
         gap: '1rem'
       }}>
         <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-          {(filePath && !isVirtualPath) ? filePath.split(/[\\/]/).pop() : 'Contract'}
+          {(filePath && !isVirtualPath) ? `${filePath.split(/[\\/]/).pop()}${pastedText.trim() !== originalContent.trim() ? '*' : ''}` : 'Contract'}
         </h3>
         <textarea
           placeholder="Paste your .rcl contract content here..."
           value={pastedText}
             onChange={(e) => {
               setPastedText(e.target.value);
-              if (filePath) {
-                setFilePath("");
-                setIsVirtualPath(false);
-              }
+              setIsVirtualPath(false);
             }}
           disabled={isAnalyzing}
           style={{
