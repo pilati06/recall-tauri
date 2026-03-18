@@ -133,6 +133,8 @@ export function AnalysisPage() {
         const [csvPart, dataPart] = finalResponse.split(divider);
         const parts = csvPart.split(";");
         
+        const extractedMem = hasErrorData ? extractMemoryFromError(dataPart || "") : null;
+        
         setParsedResult({
           time_ms: parts[0] || "-",
           states: parts[1] || "-",
@@ -142,7 +144,7 @@ export function AnalysisPage() {
           conflicting: parts[5] === "1" ? "Yes" : (parts[5] === "0" ? "No" : "-"),
           conflict_count: parts[6] || "-",
           automaton_size: parts[7] || "-",
-          max_memory: parts[8] || "-",
+          max_memory: extractedMem || parts[8] || "-",
           status: hasSummary ? "Success" : "Error",
           info: dataPart || "",
         });
@@ -153,6 +155,7 @@ export function AnalysisPage() {
           setResultMsg(dataPart || "Analysis failed.");
         }
       } else {
+        const extractedMem = extractMemoryFromError(finalResponse);
         setParsedResult({
           time_ms: "-",
           states: "-",
@@ -162,7 +165,7 @@ export function AnalysisPage() {
           conflicting: "-",
           conflict_count: "-",
           automaton_size: "-",
-          max_memory: "-",
+          max_memory: extractedMem || "-",
           status: "Error",
           info: finalResponse
         });
@@ -171,6 +174,7 @@ export function AnalysisPage() {
     } catch (error) {
       console.error("Erro ao analisar contrato:", error);
       const errorStr = String(error);
+      const extractedMem = extractMemoryFromError(errorStr);
       setParsedResult({
         time_ms: "-",
         states: "-",
@@ -180,7 +184,7 @@ export function AnalysisPage() {
         conflicting: "-",
         conflict_count: "-",
         automaton_size: "-",
-        max_memory: "-",
+        max_memory: extractedMem || "-",
         status: "Error",
         info: errorStr || "An unknown error occurred during analysis."
       });
@@ -250,6 +254,11 @@ export function AnalysisPage() {
     return conflicts;
   };
 
+
+  const extractMemoryFromError = (error: string) => {
+    const match = error.match(/Total Memory:\s*(\d+)MB/);
+    return match ? match[1] : null;
+  };
 
   async function stopAnalysis() {
     try {

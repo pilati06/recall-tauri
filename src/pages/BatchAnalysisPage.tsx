@@ -371,22 +371,24 @@ export function BatchAnalysisPage() {
                 <div className="path-display">{selectedResult.file}</div>
               </div>
 
-              <div className="metrics-grid">
-                <div className="metric-card">
-                  <label><Zap size={14} /> Time</label>
-                  <span className="value">
-                    {selectedResult.time_ms !== "-" ? (parseFloat(selectedResult.time_ms) / 1000).toFixed(3) + 's' : "-"}
-                  </span>
+              {(selectedResult.status !== "Error" || (selectedResult.max_memory && selectedResult.max_memory !== "-")) && (
+                <div className="metrics-grid">
+                  <div className="metric-card">
+                    <label><Zap size={14} /> Time</label>
+                    <span className="value">
+                      {selectedResult.time_ms !== "-" ? (parseFloat(selectedResult.time_ms) / 1000).toFixed(3) + 's' : "-"}
+                    </span>
+                  </div>
+                  <div className="metric-card">
+                    <label><Box size={14} /> Size</label>
+                    <span className="value">{selectedResult.automaton_size}</span>
+                  </div>
+                  <div className="metric-card">
+                    <label><Cpu size={14} /> Memory</label>
+                    <span className="value">{selectedResult.max_memory} MB</span>
+                  </div>
                 </div>
-                <div className="metric-card">
-                   <label><Box size={14} /> Size</label>
-                   <span className="value">{selectedResult.automaton_size}</span>
-                </div>
-                <div className="metric-card">
-                   <label><Cpu size={14} /> Memory</label>
-                   <span className="value">{selectedResult.max_memory} MB</span>
-                </div>
-              </div>
+              )}
 
               <div className="drawer-section">
                 <label><ExternalLink size={14} /> Quick Actions</label>

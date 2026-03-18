@@ -105,6 +105,11 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [batchLogs, setBatchLogs] = useState<BatchLogEntry[]>([]);
   const [batchCsvPath, setBatchCsvPath] = useState("");
 
+  const extractMemoryFromError = (error: string) => {
+    const match = error.match(/Total Memory:\s*(\d+)MB/);
+    return match ? match[1] : null;
+  };
+
   const addBatchLog = useCallback((message: string, type: "info" | "success" | "error" = "info") => {
     const entry: BatchLogEntry = {
       timestamp: new Date().toLocaleTimeString(),
@@ -161,7 +166,8 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setBatchResults((prev) => [...prev, newResult]);
         }
       } else {
-        addBatchLog(`Error: ${fileName} - ${event.payload.result || "Unknown error"}`, "error");
+        const errorText = event.payload.result || "Unknown error";
+        const extractedMem = extractMemoryFromError(errorText);
         const newResult: BatchResult = {
           file: event.payload.file,
           time_ms: event.payload.time_ms?.toString() || "-",
@@ -172,9 +178,9 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           conflicting: "-",
           conflict_count: "-",
           automaton_size: "-",
-          max_memory: "-",
+          max_memory: extractedMem || "-",
           status: "Error",
-          info: (event.payload.result || "Unknown error").replace(/\r?\n|\r/g, " "),
+          info: errorText.replace(/\r?\n|\r/g, " "),
         };
         setBatchResults((prev) => [...prev, newResult]);
       }
