@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   ZapOff
 } from "lucide-react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 interface SymbolEntry {
   id: string;
@@ -62,6 +62,7 @@ export function AnalysisPage() {
   const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const [isVirtualPath, setIsVirtualPath] = useState(false);
   const [usePruning, setUsePruning] = useState(true);
+  const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
 
@@ -115,6 +116,7 @@ export function AnalysisPage() {
         exportMinAutomaton: exportMin,
         usePruning: usePruning,
         originPath: filePath || null,
+        maxConcurrentActions: maxConcurrentActions === "" ? 30 : Number(maxConcurrentActions),
       });
 
       let finalResponse = response;
@@ -501,6 +503,40 @@ export function AnalysisPage() {
                     </label>
                   </div>
                 </div>
+
+                <div className="settings-section">
+                  <h4>Analysis Limits</h4>
+                  <p className="section-desc">Configure constraint thresholds for contract analysis.</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                    <label style={{ fontSize: '0.9rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span>Max Concurrent Actions</span>
+                      <input 
+                        type="number" 
+                        min="0"
+                        max="100"
+                        value={maxConcurrentActions}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMaxConcurrentActions(val === "" ? "" : parseInt(val, 10));
+                        }}
+                        style={{
+                          background: 'rgba(15, 23, 42, 0.6)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          color: 'white',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>
+                      Defines the maximum supported concurrent relativized actions (default is 30). Setting this too high can cause high memory usage or panics if system resources are exhausted.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="settings-footer">
@@ -549,7 +585,7 @@ export function AnalysisPage() {
             </div>
             <div className="metric-card">
                <label><Box size={14} /> Size</label>
-               <span className="value">{parsedResult.automaton_size}</span>
+               <span className="value">{parsedResult.automaton_size} MB</span>
             </div>
             <div className="metric-card">
                <label><Cpu size={14} /> Memory</label>
@@ -572,7 +608,7 @@ export function AnalysisPage() {
               )}
               
               {relatedFiles.result && (
-                <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.result)}>
+                <button className="action-btn-link" onClick={() => openPath(relatedFiles.result)}>
                   <FileText size={16} />
                   <div className="btn-content">
                     <span>Open Result</span>
@@ -583,7 +619,7 @@ export function AnalysisPage() {
               )}
               
               {relatedFiles.log && (
-                <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.log)}>
+                <button className="action-btn-link" onClick={() => openPath(relatedFiles.log)}>
                   <FileCog size={16} />
                   <div className="btn-content">
                     <span>View Full Log</span>
@@ -594,7 +630,7 @@ export function AnalysisPage() {
               )}
 
               {relatedFiles.dot && (
-                <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.dot)}>
+                <button className="action-btn-link" onClick={() => openPath(relatedFiles.dot)}>
                   <Layout size={16} />
                   <div className="btn-content">
                     <span>Automaton (DOT)</span>
@@ -605,7 +641,7 @@ export function AnalysisPage() {
               )}
 
               {relatedFiles.min_dot && (
-                <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.min_dot)}>
+                <button className="action-btn-link" onClick={() => openPath(relatedFiles.min_dot)}>
                   <Layout size={16} />
                   <div className="btn-content">
                     <span>Min Automaton (DOT)</span>

@@ -9,6 +9,14 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "shell:default"
+    "shell:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "/**"
+        }
+      ]
+    }
   ]
 }

@@ -391,6 +391,7 @@ pub struct RunConfiguration {
     log_level: LogLevel,
     global_log_filename: String,
     test: bool,
+    max_concurrent_actions: usize,
 }
 
 impl RunConfiguration {
@@ -409,6 +410,7 @@ impl RunConfiguration {
             log_level: LogLevel::Normal,
             global_log_filename: String::new(),
             test: false,
+            max_concurrent_actions: 30,
         }
     }
 
@@ -492,6 +494,12 @@ impl RunConfiguration {
     }
     pub fn set_test(&mut self, value: bool) {
         self.test = value;
+    }
+    pub fn max_concurrent_actions(&self) -> usize {
+        self.max_concurrent_actions
+    }
+    pub fn set_max_concurrent_actions(&mut self, value: usize) {
+        self.max_concurrent_actions = value;
     }
 }
 
@@ -744,9 +752,10 @@ impl ContractUtil {
         let current_time = std::time::Instant::now();
 
         let n = relativized_actions.len();
+        let limit = _config.max_concurrent_actions();
 
-        if n > 30 {
-            let msg = format!("CRITICAL: Can't calculate the set of concurrent relativized actions. (Number of actions {}). Maximum supported is 30.", n);
+        if n > limit {
+            let msg = format!("CRITICAL: Can't calculate the set of concurrent relativized actions. (Number of actions {}). Maximum supported is {}.", n, limit);
             logger.log(LogType::Necessary, &msg);
             panic!("{}", msg);
         }
@@ -1277,6 +1286,14 @@ pub fn parse_command_line(args: &[String]) -> RunConfiguration {
             "-t" => {
                 config.set_test(true);
             }
+            "-a" | "--max-actions" => {
+                if i + 1 < args.len() {
+                    if let Ok(val) = args[i + 1].parse::<usize>() {
+                        config.set_max_concurrent_actions(val);
+                    }
+                    i += 1;
+                }
+            }
             _ => {
                 eprintln!("Unknown option: {}", arg);
                 print_usage();
@@ -1302,7 +1319,8 @@ pub fn print_usage() {
     println!("    -n, --no-prunning   Don't use the prunning method");
     println!("    -c, --continue      Continues the analysis if a conflict is found");
     println!("    -m                  Export minimized automaton");
-    println!("    -t                  Test mode (outputs CSV metrics)\n");
+    println!("    -t                  Test mode (outputs CSV metrics)");
+    println!("    -a, --max-actions   Maximum number of concurrent relativized actions (default: 30)\n");
     println!("EXAMPLES:");
     println!("    recall contract.rcl");
     println!("        Analyzes a contract in the file 'contract.rcl'");

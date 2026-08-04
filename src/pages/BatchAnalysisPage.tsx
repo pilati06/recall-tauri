@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   ZapOff
 } from "lucide-react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useAnalysisContext, BatchResult } from "../context/AnalysisContext";
 
 interface SymbolEntry {
@@ -50,6 +50,7 @@ export function BatchAnalysisPage() {
   const [isLoadingSymbols, setIsLoadingSymbols] = useState(false);
   const [exportOption, setExportOption] = useState<'none' | 'normal' | 'min' | 'both'>('none');
   const [usePruning, setUsePruning] = useState(true);
+  const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
@@ -157,7 +158,8 @@ export function BatchAnalysisPage() {
         folderPath,
         exportAutomaton: exportNormal,
         exportMinAutomaton: exportMin,
-        usePruning: usePruning
+        usePruning: usePruning,
+        maxConcurrentActions: maxConcurrentActions === "" ? 30 : Number(maxConcurrentActions)
       });
       addLog("Analysis process finished.", "success");
       
@@ -285,7 +287,7 @@ export function BatchAnalysisPage() {
             {batchCsvPath && (
               <button 
                 className="action-btn-link" 
-                onClick={() => revealItemInDir(batchCsvPath)}
+                onClick={() => openPath(batchCsvPath)}
                 style={{ marginLeft: 'auto', padding: '6px 12px', width: 'auto' }}
               >
                 <FileText size={16} />
@@ -318,7 +320,7 @@ export function BatchAnalysisPage() {
                     </td>
                     <td>
                       {res.status === 'Error' ? (
-                        <span style={{ color: '#475569', fontSize: '0.8rem' }}>—</span>
+                        <span style={{ color: '#fbbf24', fontSize: '0.8rem' }}>Interrupted</span>
                       ) : (
                         <span className={`conflict-badge ${res.conflicting === 'Yes' ? 'has-conflicts' : 'no-conflicts'}`}>
                           {res.conflicting === 'Yes' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
@@ -381,7 +383,7 @@ export function BatchAnalysisPage() {
                   </div>
                   <div className="metric-card">
                     <label><Box size={14} /> Size</label>
-                    <span className="value">{selectedResult.automaton_size}</span>
+                    <span className="value">{selectedResult.automaton_size} MB</span>
                   </div>
                   <div className="metric-card">
                     <label><Cpu size={14} /> Memory</label>
@@ -400,7 +402,7 @@ export function BatchAnalysisPage() {
                   </button>
                   
                   {relatedFiles.result && (
-                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.result)}>
+                    <button className="action-btn-link" onClick={() => openPath(relatedFiles.result)}>
                       <FileText size={16} />
                       <span>Open Result</span>
                       <ChevronRight size={14} className="chevron" />
@@ -408,7 +410,7 @@ export function BatchAnalysisPage() {
                   )}
                   
                   {relatedFiles.log && (
-                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.log)}>
+                    <button className="action-btn-link" onClick={() => openPath(relatedFiles.log)}>
                       <FileCog size={16} />
                       <span>View Full Log</span>
                       <ChevronRight size={14} className="chevron" />
@@ -416,7 +418,7 @@ export function BatchAnalysisPage() {
                   )}
 
                   {relatedFiles.dot && (
-                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.dot)}>
+                    <button className="action-btn-link" onClick={() => openPath(relatedFiles.dot)}>
                       <Layout size={16} />
                       <span>Automaton (DOT)</span>
                       <ChevronRight size={14} className="chevron" />
@@ -424,7 +426,7 @@ export function BatchAnalysisPage() {
                   )}
 
                   {relatedFiles.min_dot && (
-                    <button className="action-btn-link" onClick={() => revealItemInDir(relatedFiles.min_dot)}>
+                    <button className="action-btn-link" onClick={() => openPath(relatedFiles.min_dot)}>
                       <Layout size={16} />
                       <span>Min Automaton (DOT)</span>
                       <ChevronRight size={14} className="chevron" />
@@ -1369,6 +1371,40 @@ export function BatchAnalysisPage() {
                     </div>
                     <p className="checkbox-desc">Apply aggressive pruning to reduce model size. Recommended for large contracts.</p>
                   </label>
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h4>Analysis Limits</h4>
+                <p className="section-desc">Configure constraint thresholds for contract analysis.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  <label style={{ fontSize: '0.9rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span>Max Concurrent Actions</span>
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="100"
+                      value={maxConcurrentActions}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setMaxConcurrentActions(val === "" ? "" : parseInt(val, 10));
+                      }}
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: 'white',
+                        fontSize: '0.95rem',
+                        outline: 'none',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </label>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>
+                    Defines the maximum supported concurrent relativized actions (default is 30). Setting this too high can cause high memory usage or panics if system resources are exhausted.
+                  </p>
                 </div>
               </div>
             </div>

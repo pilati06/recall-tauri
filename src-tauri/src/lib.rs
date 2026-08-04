@@ -59,7 +59,8 @@ async fn run_batch_analysis(
     folder_path: String,
     export_automaton: bool,
     export_min_automaton: bool,
-    use_pruning: bool
+    use_pruning: bool,
+    max_concurrent_actions: Option<usize>,
 ) -> Result<String, String> {
     let state = app.state::<AnalysisState>();
     
@@ -140,6 +141,10 @@ async fn run_batch_analysis(
         }
         if !use_pruning {
             args.push("-n".to_string());
+        }
+        if let Some(limit) = max_concurrent_actions {
+            args.push("-a".to_string());
+            args.push(limit.to_string());
         }
 
         // Use spawn to allow killing the process later
@@ -256,7 +261,15 @@ async fn run_batch_analysis(
     Ok(format!("Batch analysis completed. Results saved to {}", results_path.display()))
 }
 
-async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool, use_pruning: bool) -> Result<String, String> {
+async fn run_analysis_internal(
+    app_handle: tauri::AppHandle,
+    path: String,
+    mode: String,
+    export_automaton: bool,
+    export_min_automaton: bool,
+    use_pruning: bool,
+    max_concurrent_actions: Option<usize>,
+) -> Result<String, String> {
     use tauri_plugin_shell::ShellExt;
     use tauri_plugin_shell::process::CommandEvent;
     use std::sync::{Arc, Mutex};
@@ -280,6 +293,11 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 
     if !use_pruning {
         args.push("-n".to_string());
+    }
+
+    if let Some(limit) = max_concurrent_actions {
+        args.push("-a".to_string());
+        args.push(limit.to_string());
     }
 
     let (mut rx, child) = sidecar
@@ -447,11 +465,19 @@ async fn run_analysis_internal(app_handle: tauri::AppHandle, path: String, mode:
 }
 
 #[tauri::command]
-async fn process_file(app_handle: tauri::AppHandle, path: String, mode: String, export_automaton: bool, export_min_automaton: bool, use_pruning: bool) -> Result<String, String> {
+async fn process_file(
+    app_handle: tauri::AppHandle,
+    path: String,
+    mode: String,
+    export_automaton: bool,
+    export_min_automaton: bool,
+    use_pruning: bool,
+    max_concurrent_actions: Option<usize>,
+) -> Result<String, String> {
     if !std::path::Path::new(&path).exists() {
         return Err(format!("File not found: {}", path));
     }
-    run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton, use_pruning).await
+    run_analysis_internal(app_handle, path, mode, export_automaton, export_min_automaton, use_pruning, max_concurrent_actions).await
 }
 
 fn get_next_versioned_stem(parent: &Path, stem: &str) -> String {
@@ -475,6 +501,7 @@ async fn analyze_text(
     export_min_automaton: bool,
     use_pruning: bool,
     origin_path: Option<String>,
+    max_concurrent_actions: Option<usize>,
 ) -> Result<String, String> {
     use std::path::PathBuf;
 
@@ -562,6 +589,7 @@ async fn analyze_text(
         export_automaton,
         export_min_automaton,
         use_pruning,
+        max_concurrent_actions,
     )
     .await;
 
