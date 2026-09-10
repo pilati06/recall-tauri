@@ -78,6 +78,7 @@ export function AnalysisPage() {
         setFilePath(pathString);
         setIsVirtualPath(false);
         setResultMsg("");
+        setParsedResult(null);
 
         // Load file content into textarea
         try {
@@ -311,6 +312,7 @@ export function AnalysisPage() {
             onChange={(e) => {
               setPastedText(e.target.value);
               setIsVirtualPath(false);
+              setParsedResult(null);
             }}
           disabled={isAnalyzing}
           style={{

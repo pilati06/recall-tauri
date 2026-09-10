@@ -14,7 +14,7 @@ export function DocumentationPage() {
       </div>
 
       <div className="doc-section">
-        <h2><Code size={24} className="doc-icon" /> Relationship Constraint Language (RCL)</h2>
+        <h2><Code size={24} className="doc-icon" /> Relativization Constraint Language (RCL)</h2>
         <p>
           In addition, here are some examples of contracts written in RCL to facilitate the understanding of the language.
         </p>
