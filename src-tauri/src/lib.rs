@@ -892,6 +892,11 @@ async fn read_file(path: String) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn write_file(path: String, contents: String) -> Result<(), String> {
+    fs::write(path, contents).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -907,6 +912,7 @@ pub fn run() {
             process_file,
             analyze_text,
             read_file,
+            write_file,
             select_directory,
             run_batch_analysis,
             stop_analysis,

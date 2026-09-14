@@ -1,13 +1,13 @@
 .sidebar {
   width: 240px;
   height: 100vh;
-  background: rgba(30, 30, 30, 0.8);
+  background: var(--bg-sidebar);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  color: #fff;
+  color: var(--text-primary);
   transition: all 0.3s ease;
   z-index: 1000;
 }
@@ -51,13 +51,13 @@
   gap: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .sidebar-menu li:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--text-primary);
 }
 
 .sidebar-menu li.active {
@@ -76,8 +76,41 @@
 .sidebar-footer {
   padding: 1.5rem;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(var(--ink-rgb), 0.03);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover:not(:disabled) {
+  background: rgba(var(--ink-rgb), 0.08);
+  color: var(--text-primary);
+  border-color: rgba(var(--ink-rgb), 0.15);
+  transform: none;
+  box-shadow: none;
+}
+
+.theme-toggle .icon {
+  display: flex;
+  color: inherit;
 }
 
 /* Mobile Toggle Button */

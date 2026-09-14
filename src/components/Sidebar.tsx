@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Home, BarChart3, Layers, BookOpen, Menu, X } from "lucide-react";
+import { Home, BarChart3, Layers, BookOpen, Menu, X, Sun, Moon } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -9,6 +10,7 @@ interface SidebarProps {
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -61,6 +63,14 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
           </li>
         </ul>
         <div className="sidebar-footer">
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+          >
+            {theme === "dark" ? <Sun size={16} className="icon" /> : <Moon size={16} className="icon" />}
+            {theme === "dark" ? "Tema claro" : "Tema escuro"}
+          </button>
           v1.0.3
         </div>
       </nav>

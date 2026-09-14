@@ -60,7 +60,7 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
           margin: 0 auto;
           text-align: center;
           padding: 2rem;
-          color: #f6f6f6;
+          color: var(--text-primary);
         }
         .subtitle {
           font-size: 1.2rem;
@@ -74,15 +74,15 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
           margin-bottom: 4rem;
         }
         .info-card {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.05);
           padding: 1.5rem;
           border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(var(--ink-rgb), 0.1);
           transition: transform 0.3s ease;
         }
         .info-card:hover {
           transform: translateY(-5px);
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(var(--ink-rgb), 0.08);
         }
         .info-card h3 {
           margin-top: 0;
@@ -97,7 +97,7 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
         .nav-card {
           display: flex;
           align-items: center;
-          background: linear-gradient(135deg, rgba(100, 108, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+          background: linear-gradient(135deg, rgba(100, 108, 255, 0.15) 0%, rgba(var(--ink-rgb), 0.05) 100%);
           padding: 2rem;
           border-radius: 16px;
           border: 1px solid rgba(100, 108, 255, 0.3);
@@ -109,7 +109,7 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
         }
         .nav-card:hover {
           transform: translateY(-8px);
-          background: linear-gradient(135deg, rgba(100, 108, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 100%);
+          background: linear-gradient(135deg, rgba(100, 108, 255, 0.25) 0%, rgba(var(--ink-rgb), 0.08) 100%);
           border-color: rgba(100, 108, 255, 0.6);
           box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
         }
@@ -122,12 +122,12 @@ export function InfoPage({ onPageChange }: InfoPageProps) {
         }
         .nav-info h3 {
           margin: 0 0 0.5rem 0;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 1.3rem;
         }
         .nav-info p {
           margin: 0;
-          color: rgba(255, 255, 255, 0.6);
+          color: rgba(var(--ink-rgb), 0.6);
           font-size: 0.95rem;
           line-height: 1.4;
         }

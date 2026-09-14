@@ -245,7 +245,7 @@ export function BatchAnalysisPage() {
                 disabled={isAnalyzing}
                 title="Analysis Settings"
               >
-                <Settings size={22} strokeWidth={2.2} color="white" style={{ display: 'block' }} />
+                <Settings size={22} strokeWidth={2.2} color="var(--text-primary)" style={{ display: 'block' }} />
               </button>
             )}
           </div>
@@ -564,7 +564,7 @@ export function BatchAnalysisPage() {
         }
 
         .detailed-conflict-card {
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(var(--ink-rgb), 0.03);
           border: 1px solid rgba(255, 152, 0, 0.2);
           border-radius: 12px;
           padding: 1.25rem;
@@ -573,7 +573,7 @@ export function BatchAnalysisPage() {
         }
 
         .detailed-conflict-card:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.05);
           border-color: rgba(255, 152, 0, 0.4);
         }
 
@@ -596,7 +596,7 @@ export function BatchAnalysisPage() {
         .conflict-sub-section {
           margin-top: 0.75rem;
           padding-top: 0.75rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: 1px solid rgba(var(--ink-rgb), 0.05);
         }
 
         .conflict-sub-section label {
@@ -606,7 +606,7 @@ export function BatchAnalysisPage() {
           font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(var(--ink-rgb), 0.4);
           margin-bottom: 0.5rem;
         }
 
@@ -631,20 +631,20 @@ export function BatchAnalysisPage() {
           margin: 0 auto;
           text-align: center;
           padding: 2rem;
-          color: #f6f6f6;
+          color: var(--text-primary);
           position: relative;
         }
 
         .subtitle {
           font-size: 1.1rem;
-          color: #94a3b8;
+          color: var(--text-muted);
           margin-bottom: 2.5rem;
         }
 
         .glass {
-          background: rgba(30, 41, 59, 0.5);
+          background: var(--bg-slate-2);
           backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(var(--ink-rgb), 0.08);
           border-radius: 16px;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
@@ -654,8 +654,8 @@ export function BatchAnalysisPage() {
         .folder-input-wrapper { display: flex; flex-direction: column; gap: 0.5rem; text-align: left; }
         .folder-input-wrapper label { font-size: 0.85rem; font-weight: 600; color: #6366f1; text-transform: uppercase; }
         .folder-input-group { display: flex; gap: 0.75rem; }
-        .folder-input-group input { flex: 1; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(15, 23, 42, 0.6); color: #f8fafc; }
-        .browse-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0 1.25rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; cursor: pointer; }
+        .folder-input-group input { flex: 1; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(var(--ink-rgb), 0.1); background: var(--bg-slate-4); color: var(--text-primary); }
+        .browse-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0 1.25rem; background: rgba(var(--ink-rgb), 0.05); border: 1px solid rgba(var(--ink-rgb), 0.1); border-radius: 10px; color: var(--text-primary); cursor: pointer; }
         .start-btn { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 0 2rem; border-radius: 10px; border: none; background: #6366f1; color: white; font-weight: 700; cursor: pointer; transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
         .start-btn:hover:not(:disabled) { background: #4f46e5; transform: translateY(-1px); }
         .start-btn.analyzing { background: #0ea5e9; flex: 2; }
@@ -694,10 +694,10 @@ export function BatchAnalysisPage() {
           transform: translateY(-1px);
         }
 
-        .active-progress { background: rgba(15, 23, 42, 0.4); padding: 1.25rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .active-progress { background: var(--bg-slate-3); padding: 1.25rem; border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.05); }
         .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
         .file-name { color: #6366f1; font-weight: 600; margin-left: 0.5rem; }
-        .progress-bar-outer { height: 14px; background: rgba(0, 0, 0, 0.4); border-radius: 99px; overflow: hidden; position: relative; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .progress-bar-outer { height: 14px; background: rgba(0, 0, 0, 0.4); border-radius: 99px; overflow: hidden; position: relative; border: 1px solid rgba(var(--ink-rgb), 0.05); }
         .progress-bar-inner { 
           height: 100%; 
           background: linear-gradient(90deg, #6a64d8ff 0%, #06b6d4 50%, #429b63ff 100%); 
@@ -716,11 +716,11 @@ export function BatchAnalysisPage() {
           top: 0; left: 0; right: 0; bottom: 0;
           background-image: linear-gradient(
             45deg, 
-            rgba(255, 255, 255, 0.2) 25%, 
+            rgba(var(--ink-rgb), 0.2) 25%, 
             transparent 25%, 
             transparent 50%, 
-            rgba(255, 255, 255, 0.2) 50%, 
-            rgba(255, 255, 255, 0.2) 75%, 
+            rgba(var(--ink-rgb), 0.2) 50%, 
+            rgba(var(--ink-rgb), 0.2) 75%, 
             transparent 75%, 
             transparent
           );
@@ -746,7 +746,7 @@ export function BatchAnalysisPage() {
 
         .results-section { margin-top: 3rem; text-align: left; }
         .results-row { cursor: pointer; transition: background 0.2s; }
-        .results-row:hover { background: rgba(255, 255, 255, 0.05) !important; }
+        .results-row:hover { background: rgba(var(--ink-rgb), 0.05) !important; }
         .view-details-pill { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 0.1rem 0.6rem; border-radius: 99px; font-size: 0.7rem; font-weight: 600; cursor: pointer; }
 
         .results-table-wrapper {
@@ -760,14 +760,14 @@ export function BatchAnalysisPage() {
         .results-table-wrapper::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.4); border-radius: 3px; }
 
         .results-table { min-width: 800px; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
-        .results-table th { padding: 1rem; text-align: left; color: #94a3b8; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .results-table td { padding: 0.85rem 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
-        .mono { font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; }
+        .results-table th { padding: 1rem; text-align: left; color: var(--text-muted); border-bottom: 1px solid rgba(var(--ink-rgb), 0.05); }
+        .results-table td { padding: 0.85rem 1rem; border-bottom: 1px solid rgba(var(--ink-rgb), 0.03); }
+        .mono { font-family: 'JetBrains Mono', monospace; color: var(--text-secondary); font-size: 0.8rem; }
 
         .conflict-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.7rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
         .conflict-badge.has-conflicts { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
         .conflict-badge.no-conflicts { background: rgba(34, 197, 94, 0.08); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.15); }
-        .status-simple { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: #94a3b8; }
+        .status-simple { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--text-muted); }
         .status-simple.success { color: #4ade80; }
         .status-simple.error { color: #f87171; }
         .file-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
@@ -775,21 +775,21 @@ export function BatchAnalysisPage() {
         /* Drawer Styles */
         .drawer-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 1000; }
         .drawer-overlay.active { opacity: 1; pointer-events: auto; }
-        .drawer-panel { position: fixed; top: 0; right: 0; width: 500px; height: 100vh; background: #0f172a; border-left: 1px solid rgba(255, 255, 255, 0.1); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); z-index: 1001; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; text-align: left; }
+        .drawer-panel { position: fixed; top: 0; right: 0; width: 500px; height: 100vh; background: var(--bg-panel); border-left: 1px solid rgba(var(--ink-rgb), 0.1); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); z-index: 1001; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; text-align: left; }
         .drawer-panel.open { transform: translateX(0); }
-        .drawer-header { padding: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: space-between; align-items: center; }
+        .drawer-header { padding: 1.5rem; border-bottom: 1px solid rgba(var(--ink-rgb), 0.05); display: flex; justify-content: space-between; align-items: center; }
         .header-title { display: flex; align-items: center; gap: 0.75rem; }
-        .header-title h3 { margin: 0; font-size: 1.1rem; color: #f8fafc; }
+        .header-title h3 { margin: 0; font-size: 1.1rem; color: var(--text-primary); }
         .drawer-body { padding: 1.5rem; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
         .drawer-section label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #6366f1; margin-bottom: 0.5rem; }
-        .path-display { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; word-break: break-all; background: rgba(0, 0, 0, 0.2); padding: 0.75rem; border-radius: 8px; }
+        .path-display { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); word-break: break-all; background: rgba(0, 0, 0, 0.2); padding: 0.75rem; border-radius: 8px; }
         .metrics-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-        .metric-card { background: rgba(30, 41, 59, 0.5); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 0.25rem; }
-        .metric-card .value { font-size: 1rem; font-weight: 700; color: #f8fafc; }
+        .metric-card { background: var(--bg-slate-2); padding: 1rem; border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.05); display: flex; flex-direction: column; gap: 0.25rem; }
+        .metric-card .value { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
         .summary-section { background: rgba(99, 102, 241, 0.05); padding: 1rem; border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-        .metric-item { font-size: 0.85rem; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
-        .info-pre { background: rgba(0, 0, 0, 0.3); color: #d1d5db; padding: 1rem; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; word-break: break-all; border: 1px solid rgba(255, 255, 255, 0.05); }
-        .close-drawer-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0.5rem; border-radius: 50%; }
+        .metric-item { font-size: 0.85rem; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(var(--ink-rgb), 0.03); }
+        .info-pre { background: rgba(0, 0, 0, 0.3); color: var(--text-secondary); padding: 1rem; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; word-break: break-all; border: 1px solid rgba(var(--ink-rgb), 0.05); }
+        .close-drawer-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.5rem; border-radius: 50%; }
 
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin {
@@ -810,19 +810,19 @@ export function BatchAnalysisPage() {
           gap: 0.75rem;
           width: 100%;
           padding: 0.75rem 1rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-radius: 8px;
-          color: rgba(255, 255, 255, 0.8);
+          color: rgba(var(--ink-rgb), 0.8);
           cursor: pointer;
           transition: all 0.2s ease;
           text-align: left;
         }
 
         .action-btn-link:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.15);
-          color: #fff;
+          background: rgba(var(--ink-rgb), 0.08);
+          border-color: rgba(var(--ink-rgb), 0.15);
+          color: var(--text-primary);
           transform: translateX(4px);
         }
 
@@ -854,7 +854,7 @@ export function BatchAnalysisPage() {
         }
 
         .result-badge.conflict {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.05);
           color: #fbbf24;
           border: 1px solid rgba(255, 152, 0, 0.2);
         }
@@ -901,7 +901,7 @@ export function BatchAnalysisPage() {
           gap: 0.5rem;
           background: none;
           border: none;
-          color: #94a3b8;
+          color: var(--text-muted);
           font-size: 0.8rem;
           cursor: pointer;
           width: fit-content;
@@ -910,7 +910,7 @@ export function BatchAnalysisPage() {
         }
 
         .toggle-log-btn:hover {
-          color: #f6f6f6;
+          color: var(--text-primary);
         }
 
         .rotate-90 {
@@ -925,7 +925,7 @@ export function BatchAnalysisPage() {
 
         .symbols-table-container {
           background: rgba(0, 0, 0, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-top: none;
           border-bottom-left-radius: 8px;
           border-bottom-right-radius: 8px;
@@ -943,14 +943,14 @@ export function BatchAnalysisPage() {
         .symbols-mini-table th {
           text-align: left;
           padding: 0.4rem;
-          color: rgba(255, 255, 255, 0.4);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          color: rgba(var(--ink-rgb), 0.4);
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.1);
           font-weight: 500;
         }
 
         .symbols-mini-table td {
           padding: 0.4rem;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(var(--ink-rgb), 0.7);
         }
 
         .symbol-type-tag {
@@ -974,7 +974,7 @@ export function BatchAnalysisPage() {
         .action-btn-link.expanded {
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
-          background: rgba(255, 255, 255, 0.06);
+          background: rgba(var(--ink-rgb), 0.06);
         }
 
         .pulse-icon { animation: pulse 2s infinite; }
@@ -986,9 +986,9 @@ export function BatchAnalysisPage() {
           padding: 0.8rem;
           aspect-ratio: 1 / 1;
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #fff;
+          background: rgba(var(--ink-rgb), 0.08);
+          border: 1px solid rgba(var(--ink-rgb), 0.15);
+          color: var(--text-primary);
           opacity: 0.9;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
           cursor: pointer;
@@ -997,7 +997,7 @@ export function BatchAnalysisPage() {
 
         .settings-toggle-btn:hover:not(:disabled) {
           background: rgba(168, 85, 247, 0.15);
-          color: #fff;
+          color: var(--text-primary);
           opacity: 1;
           border-color: rgba(168, 85, 247, 0.5);
           transform: rotate(30deg) scale(1.05);
@@ -1016,8 +1016,8 @@ export function BatchAnalysisPage() {
         }
 
         .settings-dialog {
-          background: #1a1b26;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--bg-panel);
+          border: 1px solid rgba(var(--ink-rgb), 0.1);
           border-radius: 20px;
           width: 100%;
           max-width: 500px;
@@ -1029,9 +1029,8 @@ export function BatchAnalysisPage() {
         }
 
         .settings-header {
-          padding: 1.5rem;
-          background: rgba(255, 255, 255, 0.02);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          padding: 1.5rem 1.75rem;
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1041,7 +1040,7 @@ export function BatchAnalysisPage() {
           margin: 0;
           font-size: 1.25rem;
           font-weight: 700;
-          color: #fff;
+          color: var(--text-primary);
         }
 
         .title-with-icon {
@@ -1053,22 +1052,23 @@ export function BatchAnalysisPage() {
         .icon-purple { color: #a855f7; }
 
         .close-dialog-btn {
-          background: rgba(255, 255, 255, 0.05);
+          background: transparent;
           border: none;
-          color: rgba(255, 255, 255, 0.5);
-          padding: 0.5rem;
-          border-radius: 10px;
+          color: rgba(var(--ink-rgb), 0.4);
           cursor: pointer;
+          padding: 0.5rem;
+          border-radius: 50%;
+          display: flex;
           transition: all 0.2s;
         }
 
         .close-dialog-btn:hover {
-          background: rgba(239, 68, 68, 0.1);
-          color: #f87171;
+          background: rgba(var(--ink-rgb), 0.05);
+          color: var(--text-primary);
         }
 
         .settings-content {
-          padding: 1.5rem;
+          padding: 1.75rem;
           display: flex;
           flex-direction: column;
           gap: 2rem;
@@ -1087,7 +1087,7 @@ export function BatchAnalysisPage() {
 
         .section-desc {
           font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.5);
+          color: rgba(var(--ink-rgb), 0.5);
           margin-bottom: 1.25rem;
         }
 
@@ -1102,16 +1102,16 @@ export function BatchAnalysisPage() {
           align-items: flex-start;
           gap: 1rem;
           padding: 1rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-radius: 12px;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .export-option-card:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(var(--ink-rgb), 0.06);
+          border-color: rgba(var(--ink-rgb), 0.1);
         }
 
         .export-option-card.active {
@@ -1133,13 +1133,13 @@ export function BatchAnalysisPage() {
 
         .option-title {
           font-weight: 600;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 0.95rem;
         }
 
         .option-desc {
           font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(var(--ink-rgb), 0.4);
           line-height: 1.4;
         }
 
@@ -1152,16 +1152,16 @@ export function BatchAnalysisPage() {
           flex-direction: column;
           gap: 0.75rem;
           padding: 1.25rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-radius: 12px;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .pruning-checkbox-card.active {
-          background: rgba(168, 85, 247, 0.08);
-          border-color: rgba(168, 85, 247, 0.3);
+          background: rgba(34, 197, 94, 0.05);
+          border-color: rgba(34, 197, 94, 0.2);
         }
 
         .checkbox-header {
@@ -1170,22 +1170,12 @@ export function BatchAnalysisPage() {
           gap: 1rem;
         }
 
-        .checkbox-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: rgba(0, 0, 0, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
         .text-green { color: #4ade80; }
-        .text-gray { color: rgba(255, 255, 255, 0.3); }
+        .text-gray { color: rgba(var(--ink-rgb), 0.3); }
 
         .checkbox-label {
           font-weight: 600;
-          color: #fff;
+          color: var(--text-primary);
           flex: 1;
         }
 
@@ -1205,15 +1195,15 @@ export function BatchAnalysisPage() {
           position: absolute;
           top: 0; left: 0;
           width: 20px; height: 20px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(var(--ink-rgb), 0.1);
+          border: 1px solid rgba(var(--ink-rgb), 0.2);
           border-radius: 6px;
           transition: all 0.2s;
         }
 
         .custom-checkbox input:checked ~ .checkmark {
-          background: #a855f7;
-          border-color: #a855f7;
+          background: #22c55e;
+          border-color: #22c55e;
         }
 
         .checkmark:after {
@@ -1233,7 +1223,7 @@ export function BatchAnalysisPage() {
 
         .checkbox-desc {
           font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(var(--ink-rgb), 0.4);
           line-height: 1.4;
           margin: 0;
           padding-left: 3.25rem;
@@ -1241,8 +1231,8 @@ export function BatchAnalysisPage() {
 
         .settings-footer {
           padding: 1.5rem;
-          background: rgba(255, 255, 255, 0.02);
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.02);
+          border-top: 1px solid rgba(var(--ink-rgb), 0.05);
           display: flex;
           justify-content: flex-end;
         }
@@ -1378,7 +1368,7 @@ export function BatchAnalysisPage() {
                 <h4>Analysis Limits</h4>
                 <p className="section-desc">Configure constraint thresholds for contract analysis.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                  <label style={{ fontSize: '0.9rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <span>Max Concurrent Actions</span>
                     <input 
                       type="number" 
@@ -1390,11 +1380,11 @@ export function BatchAnalysisPage() {
                         setMaxConcurrentActions(val === "" ? "" : parseInt(val, 10));
                       }}
                       style={{
-                        background: 'rgba(15, 23, 42, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'var(--bg-slate-4)',
+                        border: '1px solid rgba(var(--ink-rgb), 0.1)',
                         borderRadius: '6px',
                         padding: '8px 12px',
-                        color: 'white',
+                        color: 'var(--text-primary)',
                         fontSize: '0.95rem',
                         outline: 'none',
                         width: '100%',
@@ -1402,7 +1392,7 @@ export function BatchAnalysisPage() {
                       }}
                     />
                   </label>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
                     Defines the maximum supported concurrent relativized actions (default is 30). Setting this too high can cause high memory usage or panics if system resources are exhausted.
                   </p>
                 </div>

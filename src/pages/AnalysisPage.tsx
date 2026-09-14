@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { useAnalysisContext } from "../context/AnalysisContext";
 import { 
   Loader2, 
@@ -20,7 +20,8 @@ import {
   Settings,
   X,
   ShieldCheck,
-  ZapOff
+  ZapOff,
+  Save
 } from "lucide-react";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 
@@ -65,6 +66,27 @@ export function AnalysisPage() {
   const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
+
+  async function saveFileAs() {
+    try {
+      const selectedPath = await save({
+        title: "Salvar contrato",
+        defaultPath: filePath || "contract.rcl",
+        filters: [{ name: 'RCL', extensions: ['rcl'] }],
+      });
+
+      if (selectedPath) {
+        await invoke("write_file", { path: selectedPath, contents: pastedText });
+        setFilePath(selectedPath);
+        setIsVirtualPath(false);
+        setOriginalContent(pastedText);
+        setResultMsg(`File saved successfully.`);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar arquivo:", error);
+      setResultMsg("Error saving file.");
+    }
+  }
 
   async function selectFile() {
     try {
@@ -296,16 +318,38 @@ export function AnalysisPage() {
       <div className="pasted-analysis-section" style={{ 
         marginBottom: '2rem', 
         padding: '1.5rem', 
-        background: 'rgba(255, 255, 255, 0.03)', 
+        background: 'rgba(var(--ink-rgb), 0.03)', 
         borderRadius: '16px',
-        border: '1px solid rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(var(--ink-rgb), 0.05)',
         display: 'flex',
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-          {(filePath && !isVirtualPath) ? `${filePath.split(/[\\/]/).pop()}${pastedText.trim() !== originalContent.trim() ? '*' : ''}` : 'Contract'}
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+            {(filePath && !isVirtualPath) ? `${filePath.split(/[\\/]/).pop()}${pastedText.trim() !== originalContent.trim() ? '*' : ''}` : 'Contract'}
+          </h3>
+          <button 
+            className="settings-toggle-btn"
+            onClick={() => setShowSettings(true)}
+            disabled={isAnalyzing}
+            title="Analysis Settings"
+            style={{ 
+              background: 'rgba(var(--ink-rgb), 0.05)',
+              border: '1px solid rgba(var(--ink-rgb), 0.1)',
+              borderRadius: '8px',
+              padding: '0.5rem',
+              cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+              opacity: isAnalyzing ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            <Settings size={20} />
+          </button>
+        </div>
         <textarea
           placeholder="Paste your .rcl contract content here..."
           value={pastedText}
@@ -318,9 +362,9 @@ export function AnalysisPage() {
           style={{
             width: '100%',
             height: '200px',
-            background: '#1a1a1a',
-            color: '#f6f6f6',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'var(--bg-app)',
+            color: 'var(--text-primary)',
+            border: '1px solid rgba(var(--ink-rgb), 0.1)',
             borderRadius: '12px',
             padding: '1rem',
             fontFamily: 'monospace',
@@ -347,6 +391,20 @@ export function AnalysisPage() {
         </div>
         
         <div className="button-row" style={{ isolation: 'isolate' }}>
+          <button onClick={saveFileAs} 
+          disabled={isAnalyzing || !pastedText.trim()}
+          style={{
+              padding: '0.8rem 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              opacity: (isAnalyzing || !pastedText.trim()) ? 0.5 : 1,
+              cursor: (isAnalyzing || !pastedText.trim()) ? 'not-allowed' : 'pointer'
+            }}>
+            <Save size={20} />
+            <span>Save</span>
+          </button>
           <button onClick={selectFile} 
           disabled={isAnalyzing}
           style={{
@@ -395,15 +453,6 @@ export function AnalysisPage() {
             }}
           >
             {isAnalyzing ? 'Stop Analysis' : 'Clear'}
-          </button>
-
-          <button 
-            className="settings-toggle-btn"
-            onClick={() => setShowSettings(true)}
-            disabled={isAnalyzing}
-            title="Analysis Settings"
-          >
-            <Settings size={22} />
           </button>
         </div>
         {showSettings && (
@@ -510,7 +559,7 @@ export function AnalysisPage() {
                   <h4>Analysis Limits</h4>
                   <p className="section-desc">Configure constraint thresholds for contract analysis.</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                    <label style={{ fontSize: '0.9rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span>Max Concurrent Actions</span>
                       <input 
                         type="number" 
@@ -522,11 +571,11 @@ export function AnalysisPage() {
                           setMaxConcurrentActions(val === "" ? "" : parseInt(val, 10));
                         }}
                         style={{
-                          background: 'rgba(15, 23, 42, 0.6)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          background: 'var(--bg-slate-4)',
+                          border: '1px solid rgba(var(--ink-rgb), 0.1)',
                           borderRadius: '6px',
                           padding: '8px 12px',
-                          color: 'white',
+                          color: 'var(--text-primary)',
                           fontSize: '0.95rem',
                           outline: 'none',
                           width: '100%',
@@ -534,7 +583,7 @@ export function AnalysisPage() {
                         }}
                       />
                     </label>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
                       Defines the maximum supported concurrent relativized actions (default is 30). Setting this too high can cause high memory usage or panics if system resources are exhausted.
                     </p>
                   </div>
@@ -560,8 +609,8 @@ export function AnalysisPage() {
       {(!parsedResult || (parsedResult && parsedResult.status === 'Error')) ? (
         <div style={{ flex: 1 }}>
           <pre style={{ 
-            background: '#1e1e1e',  
-            color: parsedResult?.status === 'Error' ? '#f87171' : '#d4d4d4', 
+            background: 'var(--bg-elevated)',
+            color: parsedResult?.status === 'Error' ? '#f87171' : 'var(--code-text)',
             fontSize: '0.8rem',
             fontFamily: 'monospace',
             padding: '1rem', 
@@ -771,7 +820,7 @@ export function AnalysisPage() {
         }
 
         .detailed-conflict-card {
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(var(--ink-rgb), 0.03);
           border: 1px solid rgba(255, 152, 0, 0.2);
           border-radius: 12px;
           padding: 1.25rem;
@@ -780,7 +829,7 @@ export function AnalysisPage() {
         }
 
         .detailed-conflict-card:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.05);
           border-color: rgba(255, 152, 0, 0.4);
         }
 
@@ -803,7 +852,7 @@ export function AnalysisPage() {
         .conflict-sub-section {
           margin-top: 0.75rem;
           padding-top: 0.75rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: 1px solid rgba(var(--ink-rgb), 0.05);
         }
 
         .conflict-sub-section label {
@@ -813,7 +862,7 @@ export function AnalysisPage() {
           font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(var(--ink-rgb), 0.4);
           margin-bottom: 0.5rem;
         }
 
@@ -826,7 +875,7 @@ export function AnalysisPage() {
           margin: 0;
           white-space: pre-wrap;
           word-break: break-all;
-          color: #d4d4d4;
+          color: var(--code-text);
           line-height: 1.5;
         }
 
@@ -838,7 +887,7 @@ export function AnalysisPage() {
           margin: 0 auto;
           text-align: center;
           padding: 2rem;
-          color: #f6f6f6;
+          color: var(--text-primary);
         }
         .subtitle {
           font-size: 1.2rem;
@@ -870,8 +919,8 @@ export function AnalysisPage() {
         }
 
         .clear-btn {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(var(--ink-rgb), 0.05);
+          border: 1px solid rgba(var(--ink-rgb), 0.1);
           color: #f87171;
         }
         .clear-btn:hover {
@@ -920,10 +969,10 @@ export function AnalysisPage() {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
-          background: rgba(30, 41, 59, 0.3);
+          background: var(--bg-slate-1);
           padding: 1.5rem;
           border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           text-align: left;
         }
 
@@ -945,19 +994,19 @@ export function AnalysisPage() {
         }
 
         .metric-card { 
-          background: rgba(30, 41, 59, 0.5); 
-          padding: 1rem; 
-          border-radius: 12px; 
-          border: 1px solid rgba(255, 255, 255, 0.05); 
-          display: flex; 
-          flex-direction: column; 
-          gap: 0.25rem; 
+          background: var(--bg-slate-2);
+          padding: 1rem;
+          border-radius: 12px;
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
         }
 
-        .metric-card .value { 
-          font-size: 1rem; 
-          font-weight: 700; 
-          color: #f8fafc; 
+        .metric-card .value {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text-primary);
         }
 
         .summary-section { 
@@ -973,7 +1022,7 @@ export function AnalysisPage() {
           font-size: 0.85rem; 
           display: flex; 
           justify-content: space-between; 
-          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.03);
           padding-bottom: 2px;
         }
 
@@ -989,19 +1038,19 @@ export function AnalysisPage() {
           gap: 0.75rem;
           width: 100%;
           padding: 0.75rem 1rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-radius: 8px;
-          color: rgba(255, 255, 255, 0.8);
+          color: rgba(var(--ink-rgb), 0.8);
           cursor: pointer;
           transition: all 0.2s ease;
           text-align: left;
         }
 
         .action-btn-link:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.15);
-          color: #fff;
+          background: rgba(var(--ink-rgb), 0.08);
+          border-color: rgba(var(--ink-rgb), 0.15);
+          color: var(--text-primary);
           transform: translateX(4px);
         }
 
@@ -1049,7 +1098,7 @@ export function AnalysisPage() {
         }
 
         .result-badge.conflict {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.05);
           color: #fbbf24;
           border: 1px solid rgba(255, 152, 0, 0.2);
         }
@@ -1080,7 +1129,7 @@ export function AnalysisPage() {
 
         .symbols-table-container {
           background: rgba(0, 0, 0, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           border-top: none;
           border-bottom-left-radius: 8px;
           border-bottom-right-radius: 8px;
@@ -1098,14 +1147,14 @@ export function AnalysisPage() {
         .symbols-mini-table th {
           text-align: left;
           padding: 0.5rem;
-          color: rgba(255, 255, 255, 0.4);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          color: rgba(var(--ink-rgb), 0.4);
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.1);
           font-weight: 500;
         }
 
         .symbols-mini-table td {
           padding: 0.5rem;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(var(--ink-rgb), 0.7);
         }
 
         .symbol-type-tag {
@@ -1128,8 +1177,8 @@ export function AnalysisPage() {
 
         .settings-header {
           padding: 1.5rem;
-          background: rgba(255, 255, 255, 0.02);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.02);
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1148,9 +1197,9 @@ export function AnalysisPage() {
           padding: 0.8rem;
           aspect-ratio: 1 / 1;
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #fff;
+          background: rgba(var(--ink-rgb), 0.08);
+          border: 1px solid rgba(var(--ink-rgb), 0.15);
+          color: var(--text-primary);
           opacity: 0.9;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
           cursor: pointer;
@@ -1159,7 +1208,7 @@ export function AnalysisPage() {
 
         .settings-toggle-btn:hover:not(:disabled) {
           background: rgba(168, 85, 247, 0.15);
-          color: #fff;
+          color: var(--text-primary);
           opacity: 1;
           border-color: rgba(168, 85, 247, 0.5);
           transform: rotate(30deg) scale(1.05);
@@ -1178,9 +1227,9 @@ export function AnalysisPage() {
         }
 
         .settings-dialog {
-          background: #1e293b;
+          background: var(--bg-panel);
           border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(var(--ink-rgb), 0.1);
           width: 100%;
           max-width: 500px;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -1195,7 +1244,7 @@ export function AnalysisPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
         }
 
         .settings-header h3 { margin: 0; font-size: 1.2rem; }
@@ -1203,7 +1252,7 @@ export function AnalysisPage() {
         .close-dialog-btn {
           background: transparent;
           border: none;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(var(--ink-rgb), 0.4);
           cursor: pointer;
           padding: 0.5rem;
           border-radius: 50%;
@@ -1212,8 +1261,8 @@ export function AnalysisPage() {
         }
 
         .close-dialog-btn:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: white;
+          background: rgba(var(--ink-rgb), 0.05);
+          color: var(--text-primary);
         }
 
         .settings-content {
@@ -1236,7 +1285,7 @@ export function AnalysisPage() {
         .section-desc {
           margin: 0 0 1.25rem 0;
           font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.5);
+          color: rgba(var(--ink-rgb), 0.5);
         }
 
         .export-options-list {
@@ -1251,15 +1300,15 @@ export function AnalysisPage() {
           gap: 1rem;
           padding: 1rem;
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
         .export-option-card:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(var(--ink-rgb), 0.06);
+          border-color: rgba(var(--ink-rgb), 0.1);
         }
 
         .export-option-card.active {
@@ -1278,7 +1327,7 @@ export function AnalysisPage() {
         }
 
         .option-title { font-weight: 600; font-size: 0.95rem; }
-        .option-desc { font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); }
+        .option-desc { font-size: 0.8rem; color: rgba(var(--ink-rgb), 0.4); }
 
         .pruning-checkbox-card {
           display: flex;
@@ -1286,8 +1335,8 @@ export function AnalysisPage() {
           gap: 0.75rem;
           padding: 1.25rem;
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           cursor: pointer;
           transition: all 0.2s ease;
         }
@@ -1304,7 +1353,7 @@ export function AnalysisPage() {
         }
 
         .checkbox-label { flex: 1; font-weight: 600; font-size: 1rem; }
-        .checkbox-desc { margin: 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.4); padding-left: 2.15rem; }
+        .checkbox-desc { margin: 0; font-size: 0.85rem; color: rgba(var(--ink-rgb), 0.4); padding-left: 2.15rem; }
 
         .settings-footer {
           padding: 1.25rem 1.75rem;
@@ -1327,15 +1376,15 @@ export function AnalysisPage() {
         .apply-btn:hover { background: #4f46e5; transform: translateY(-1px); }
 
         .text-green { color: #4ade80; }
-        .text-gray { color: rgba(255, 255, 255, 0.2); }
+        .text-gray { color: rgba(var(--ink-rgb), 0.2); }
         .icon-purple { color: #a855f7; }
 
         .custom-checkbox { position: relative; width: 20px; height: 20px; }
         .custom-checkbox input { opacity: 0; width: 0; height: 0; }
         .checkmark {
           position: absolute; top: 0; left: 0; height: 20px; width: 20px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(var(--ink-rgb), 0.1);
+          border: 1px solid rgba(var(--ink-rgb), 0.2);
           border-radius: 5px;
         }
         .custom-checkbox input:checked ~ .checkmark { background: #22c55e; border-color: #22c55e; }
@@ -1359,7 +1408,7 @@ export function AnalysisPage() {
         .action-btn-link.expanded {
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
-          background: rgba(255, 255, 255, 0.06);
+          background: rgba(var(--ink-rgb), 0.06);
         }
 
         .info-pre.error {

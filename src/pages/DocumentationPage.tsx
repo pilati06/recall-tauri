@@ -82,7 +82,7 @@ conflict{
           max-width: 900px;
           margin: 0 auto;
           padding: 2rem;
-          color: #f6f6f6;
+          color: var(--text-primary);
           text-align: left;
         }
         .subtitle {
@@ -92,10 +92,10 @@ conflict{
           text-align: center;
         }
         .doc-section {
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(var(--ink-rgb), 0.03);
           padding: 2rem;
           border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
           margin-bottom: 2rem;
         }
         .doc-section h2 {
@@ -110,12 +110,12 @@ conflict{
           color: #646cff;
         }
         .code-block {
-          background: #1a1a1a;
+          background: var(--bg-elevated);
           padding: 1.5rem;
           border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(var(--ink-rgb), 0.1);
           font-family: 'Fira Code', monospace;
-          color: #dcdcaa;
+          color: var(--code-text);
           margin: 1.5rem 0;
           overflow-x: auto;
         }
@@ -128,14 +128,14 @@ conflict{
         }
         .step-card h3 {
           margin-top: 0;
-          color: #fff;
+          color: var(--text-primary);
         }
         .documentation-page ul {
           line-height: 1.8;
-          color: rgba(255, 255, 255, 0.8);
+          color: rgba(var(--ink-rgb), 0.8);
         }
         .documentation-page strong {
-          color: #fff;
+          color: var(--text-primary);
         }
         @media (max-width: 768px) {
           .documentation-page {
