@@ -120,11 +120,8 @@ export function AnalysisPage() {
   }
 
   async function runAnalysis() {
-    if (!pastedText.trim()) {
-      setResultMsg("Please load or paste a contract before analyzing.");
-      return;
-    }
-
+    // An empty contract is treated as trivial (no rules), so it's still valid to analyze
+    // and should pass without conflicts — no need to block the user here.
     setIsAnalyzing(true);
     setResultMsg("Processing Contract...");
 
@@ -310,6 +307,11 @@ export function AnalysisPage() {
     setIsVirtualPath(false);
   }
 
+  // Run is only allowed once the user has actually loaded a file or typed
+  // something — an empty contract is valid to analyze, but an untouched
+  // page shouldn't let the user run "nothing" by accident.
+  const hasContent = Boolean(filePath.trim()) || pastedText.trim().length > 0;
+
   return (
     <div className="analysis-page">
       <h1>Analysis Tool</h1>
@@ -351,7 +353,11 @@ export function AnalysisPage() {
           </button>
         </div>
         <textarea
-          placeholder="Paste your .rcl contract content here..."
+          placeholder={
+            (filePath && !isVirtualPath)
+              ? "Empty file loaded. This is a valid, trivial contract (no rules) and will pass without conflicts."
+              : "Paste your .rcl contract content here..."
+          }
           value={pastedText}
             onChange={(e) => {
               setPastedText(e.target.value);
@@ -419,16 +425,16 @@ export function AnalysisPage() {
             <FolderOpen size={20} />
             <span>Select File</span>
           </button>
-          <button 
+          <button
             onClick={runAnalysis}
-            disabled={!pastedText.trim() || isAnalyzing}
+            disabled={isAnalyzing || !hasContent}
             style={{
               padding: '0.8rem 2rem',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              opacity: (pastedText.trim() && !isAnalyzing) ? 1 : 0.5,
-              cursor: (pastedText.trim() && !isAnalyzing) ? 'pointer' : 'not-allowed'
+              opacity: (isAnalyzing || !hasContent) ? 0.5 : 1,
+              cursor: (isAnalyzing || !hasContent) ? 'not-allowed' : 'pointer'
             }}
           >
             

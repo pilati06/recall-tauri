@@ -3,7 +3,9 @@ COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* }
 
 main = { SOI ~ contract ~ EOI }
 
-contract = { conflict ~ clause ~ (END ~ clause)* ~ END }
+// The clause list is optional: an empty (or whitespace/comments-only) contract
+// is a valid, trivial contract with no rules, and therefore has no conflicts.
+contract = { conflict ~ (clause ~ (END ~ clause)* ~ END)? }
 
 cfGlobal_block = { GLOBAL ~ "{" ~ cfPair ~ ("," ~ cfPair)* ~ "}" ~ END }
 cfRel_block    = { RELATIVIZED ~ "{" ~ cfPair ~ ("," ~ cfPair)* ~ "}" ~ END }
