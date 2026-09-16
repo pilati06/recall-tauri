@@ -42,6 +42,12 @@ struct BatchProgress {
     result: Option<String>,
     time_ms: Option<u64>,
     progress: f32,
+    // Total number of .rcl files in this batch run. The frontend uses this,
+    // together with the per-file time_ms of files completed so far, to
+    // estimate remaining time instead of only showing a raw file-count
+    // fraction (which can be very misleading when contracts vary a lot in
+    // processing time).
+    total_files: usize,
 }
 
 #[tauri::command]
@@ -90,7 +96,8 @@ async fn run_batch_analysis(
     }
 
     use tauri::Emitter;
-    let total = files.len() as f32;
+    let total_files = files.len();
+    let total = total_files as f32;
     let mut csv_results = String::from("file;time_ms;states;transitions;individuals;actions;conflicting;conflict_count;automaton_size_mb;max_memory_mb;obs\n");
 
     let add_log = |message: &str, status: &str| {
@@ -100,6 +107,7 @@ async fn run_batch_analysis(
             result: Some(message.to_string()),
             time_ms: None,
             progress: 0.0,
+            total_files,
         });
     };
 
@@ -121,6 +129,7 @@ async fn run_batch_analysis(
             result: None,
             time_ms: None,
             progress: (i as f32) / total,
+            total_files,
         });
 
         let start = Instant::now();
@@ -222,6 +231,7 @@ async fn run_batch_analysis(
                 result: Some(format!("{};SUMMARY_DATA:{}", stdout, summary)),
                 time_ms: Some(elapsed),
                 progress: (i + 1) as f32 / total,
+                total_files,
             });
         } else {
             let mut error_msg = stderr;
@@ -243,6 +253,7 @@ async fn run_batch_analysis(
                 result: Some(error_msg),
                 time_ms: Some(elapsed),
                 progress: (i + 1) as f32 / total,
+                total_files,
             });
         }
     }

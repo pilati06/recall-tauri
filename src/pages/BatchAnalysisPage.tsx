@@ -37,6 +37,7 @@ export function BatchAnalysisPage() {
     isAnalyzing, setIsAnalyzing,
     progress, setProgress,
     currentFile, setCurrentFile,
+    totalFiles, setTotalFiles,
     results, setResults,
     logs, setLogs,
     addLog,
@@ -53,6 +54,150 @@ export function BatchAnalysisPage() {
   const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the mousedown that led to this click actually started on
+  // the overlay itself, so a text-selection drag that starts inside the
+  // dialog and is released outside doesn't get treated as a backdrop click.
+  const settingsOverlayMouseDownOnSelf = useRef(false);
+
+  // Custom horizontal scrollbar for the results table: on macOS, the native
+  // scrollbar only appears during an active trackpad gesture (OS-level
+  // overlay-scrollbar behavior), not on hover, which made it look like the
+  // table had no way to scroll. This bar is always visible instead.
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [hScrollbar, setHScrollbar] = useState({ widthPct: 100, leftPct: 0, visible: false });
+  const hDragRef = useRef<{ startX: number; startScrollLeft: number } | null>(null);
+
+  const updateHScrollbar = () => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const { scrollWidth, clientWidth, scrollLeft } = el;
+    if (scrollWidth <= clientWidth + 1) {
+      setHScrollbar({ widthPct: 100, leftPct: 0, visible: false });
+      return;
+    }
+    const widthPct = (clientWidth / scrollWidth) * 100;
+    const maxScrollLeft = scrollWidth - clientWidth;
+    const leftPct = (scrollLeft / maxScrollLeft) * (100 - widthPct);
+    setHScrollbar({ widthPct, leftPct, visible: true });
+  };
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    updateHScrollbar();
+
+    const onScroll = () => updateHScrollbar();
+    el.addEventListener('scroll', onScroll);
+    window.addEventListener('resize', onScroll);
+
+    const resizeObserver = new ResizeObserver(() => updateHScrollbar());
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      resizeObserver.disconnect();
+    };
+  }, [results]);
+
+  const handleHScrollbarDragStart = (e: React.MouseEvent) => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    e.preventDefault();
+    hDragRef.current = { startX: e.clientX, startScrollLeft: el.scrollLeft };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!hDragRef.current || !el) return;
+      const deltaX = moveEvent.clientX - hDragRef.current.startX;
+      const scrollableWidth = el.scrollWidth - el.clientWidth;
+      const scrollRatio = scrollableWidth / el.clientWidth;
+      el.scrollLeft = hDragRef.current.startScrollLeft + deltaX * scrollRatio;
+    };
+    const onMouseUp = () => {
+      hDragRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Time-based progress estimate: the raw file-count progress ("2 of 10
+  // files done") doesn't reflect that contracts can take wildly different
+  // amounts of time to analyze — the bar can sit still for a long time on
+  // one slow contract, or jump quickly through several fast ones. Instead,
+  // we track how long the file currently being processed has been running
+  // and compare it to the average duration of the files completed so far in
+  // this run, to interpolate a smoother, more representative percentage and
+  // show an estimated time remaining.
+  const currentFileStartRef = useRef<number | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 250);
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
+
+  useEffect(() => {
+    if (isAnalyzing && currentFile) {
+      currentFileStartRef.current = Date.now();
+    }
+  }, [currentFile, isAnalyzing]);
+
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const completedDurationsMs = results
+    .map((r) => parseFloat(r.time_ms))
+    .filter((v) => !isNaN(v) && v > 0);
+  const avgFileDurationMs = completedDurationsMs.length > 0
+    ? completedDurationsMs.reduce((a, b) => a + b, 0) / completedDurationsMs.length
+    : 4000; // reasonable guess until the first file finishes and we have real data
+
+  const completedCount = results.length;
+  const effectiveTotal = Math.max(totalFiles, completedCount + (isAnalyzing ? 1 : 0), 1);
+  const elapsedOnCurrentFileMs = isAnalyzing && currentFileStartRef.current
+    ? Math.max(0, nowTick - currentFileStartRef.current)
+    : 0;
+  // Asymptotic curve instead of a hard cap: it reaches 50% right at the
+  // average duration, then keeps creeping slowly forever without ever
+  // actually hitting 100% before the completion event arrives. A fixed cap
+  // (e.g. min(elapsed / avg, 0.97)) looks great for typical files but gets
+  // reached almost instantly — then sits frozen — for a contract that takes
+  // much longer than the run's average so far.
+  const currentFileFraction = elapsedOnCurrentFileMs / (elapsedOnCurrentFileMs + avgFileDurationMs);
+
+  // Once a file runs well past the run's average (e.g. a much more complex
+  // contract), the asymptotic curve above flattens so hard that the rounded
+  // percentage barely changes for minutes — it's technically still creeping,
+  // but it *looks* frozen. Rather than fake a precise number we can't back
+  // up, past that point we stop projecting this file's contribution and be
+  // upfront that it's an outlier, showing a live elapsed timer instead of a
+  // percentage/ETA that would just sit still. This also has to work for the
+  // very first file of a run (or a folder with a single contract), where
+  // there's no completed file yet to build a real average from — in that
+  // case avgFileDurationMs falls back to a generic guess, which is still a
+  // reasonable bar for "this is clearly not a quick contract".
+  const isOutlierFile = elapsedOnCurrentFileMs > avgFileDurationMs * 2.5;
+
+  const smoothProgress = isAnalyzing
+    ? Math.min(((completedCount + currentFileFraction) / effectiveTotal) * 100, 99)
+    : progress;
+
+  const remainingFilesFraction = Math.max(effectiveTotal - completedCount - currentFileFraction, 0);
+  const etaLabel = isAnalyzing && !isOutlierFile && completedDurationsMs.length > 0 && remainingFilesFraction > 0
+    ? formatDuration(remainingFilesFraction * avgFileDurationMs)
+    : null;
+  const elapsedOnCurrentFileLabel = isAnalyzing && elapsedOnCurrentFileMs > 0
+    ? formatDuration(elapsedOnCurrentFileMs)
+    : null;
 
   // Fetch related files when selection changes
   useEffect(() => {
@@ -144,6 +289,7 @@ export function BatchAnalysisPage() {
 
     setIsAnalyzing(true);
     setProgress(0);
+    setTotalFiles(0);
     setResults([]);
     setLogs([]);
     setBatchCsvPath("");
@@ -260,17 +406,30 @@ export function BatchAnalysisPage() {
                     <FileCog size={16} className={isAnalyzing ? "pulse-icon" : ""} />
                     <span className="file-label"> {isAnalyzing ? "Currently processing:" : "Batch status:"}</span>
                     <span className="file-name">{currentFile || "Preparing..."}</span>
+                    {elapsedOnCurrentFileLabel && (
+                      <span className={`elapsed-label ${isOutlierFile ? 'outlier' : ''}`}>
+                        ({elapsedOnCurrentFileLabel}{isOutlierFile ? ' — complex contract, still running' : ''})
+                      </span>
+                    )}
                   </div>
-                  <span className="percentage">{Math.round(progress)}%</span>
+                  <span className="percentage">
+                    {Math.round(smoothProgress)}%
+                    {etaLabel && <span className="eta-label"> · ~{etaLabel} left</span>}
+                  </span>
                 </div>
                 <div className="progress-bar-outer">
-                  <div 
-                    className={`progress-bar-inner ${isAnalyzing ? 'shimmer' : ''}`} 
-                    style={{ width: `${progress}%` }}
+                  <div
+                    className={`progress-bar-inner ${isAnalyzing ? 'shimmer' : ''}`}
+                    style={{ width: `${smoothProgress}%` }}
                   >
                     <div className="progress-glow"></div>
                   </div>
                 </div>
+                {completedCount > 0 && (
+                  <div className="progress-file-count">
+                    {completedCount} / {effectiveTotal} files processed
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -296,7 +455,7 @@ export function BatchAnalysisPage() {
               </button>
             )}
           </div>
-          <div className="results-table-wrapper glass">
+          <div className="results-table-wrapper glass" ref={tableScrollRef}>
             <table className="results-table">
               <thead>
                 <tr>
@@ -349,6 +508,15 @@ export function BatchAnalysisPage() {
               </tbody>
             </table>
           </div>
+          {hScrollbar.visible && (
+            <div className="custom-hscrollbar-track">
+              <div
+                className="custom-hscrollbar-thumb"
+                style={{ width: `${hScrollbar.widthPct}%`, left: `${hScrollbar.leftPct}%` }}
+                onMouseDown={handleHScrollbarDragStart}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -697,6 +865,10 @@ export function BatchAnalysisPage() {
         .active-progress { background: var(--bg-slate-3); padding: 1.25rem; border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.05); }
         .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
         .file-name { color: #6366f1; font-weight: 600; margin-left: 0.5rem; }
+        .eta-label { color: var(--text-muted); font-weight: 500; font-size: 0.8rem; }
+        .elapsed-label { color: var(--text-muted); font-weight: 500; font-size: 0.8rem; margin-left: 0.4rem; }
+        .elapsed-label.outlier { color: #fbbf24; font-weight: 600; }
+        .progress-file-count { margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); text-align: right; }
         .progress-bar-outer { height: 14px; background: rgba(0, 0, 0, 0.4); border-radius: 99px; overflow: hidden; position: relative; border: 1px solid rgba(var(--ink-rgb), 0.05); }
         .progress-bar-inner { 
           height: 100%; 
@@ -753,11 +925,31 @@ export function BatchAnalysisPage() {
           overflow-x: auto;
           padding: 0.5rem;
           -webkit-overflow-scrolling: touch;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+          scrollbar-width: none;
         }
-        .results-table-wrapper::-webkit-scrollbar { height: 6px; }
-        .results-table-wrapper::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.4); border-radius: 3px; }
+        .results-table-wrapper::-webkit-scrollbar { display: none; }
+
+        /* Always-visible custom scrollbar: on macOS, the native scrollbar is
+           an overlay that only appears during an active trackpad gesture
+           (not on hover), which made this table look like it couldn't
+           scroll. This bar is drawn ourselves so it's visible on every OS. */
+        .custom-hscrollbar-track {
+          position: relative;
+          height: 6px;
+          margin: 2px 0.5rem 0.5rem;
+          background: rgba(var(--ink-rgb), 0.06);
+          border-radius: 3px;
+        }
+        .custom-hscrollbar-thumb {
+          position: absolute;
+          top: 0;
+          height: 100%;
+          background: rgba(99, 102, 241, 0.5);
+          border-radius: 3px;
+          cursor: grab;
+        }
+        .custom-hscrollbar-thumb:hover { background: rgba(99, 102, 241, 0.7); }
+        .custom-hscrollbar-thumb:active { cursor: grabbing; }
 
         .results-table { min-width: 800px; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
         .results-table th { padding: 1rem; text-align: left; color: var(--text-muted); border-bottom: 1px solid rgba(var(--ink-rgb), 0.05); }
@@ -1265,7 +1457,11 @@ export function BatchAnalysisPage() {
       `}</style>
       
       {showSettings && (
-        <div className="settings-overlay fade-in" onClick={() => setShowSettings(false)}>
+        <div
+          className="settings-overlay fade-in"
+          onMouseDown={(e) => { settingsOverlayMouseDownOnSelf.current = e.target === e.currentTarget; }}
+          onClick={() => { if (settingsOverlayMouseDownOnSelf.current) setShowSettings(false); }}
+        >
           <div className="settings-dialog pop-in" onClick={e => e.stopPropagation()}>
             <div className="settings-header">
               <div className="title-with-icon">

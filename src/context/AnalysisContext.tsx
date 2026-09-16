@@ -30,6 +30,7 @@ export interface ProgressEvent {
   result: string | null;
   time_ms: number | null;
   progress: number;
+  total_files: number;
 }
 
 export interface BatchLogEntry {
@@ -61,12 +62,14 @@ interface AnalysisContextType {
     isAnalyzing: boolean;
     progress: number;
     currentFile: string;
+    totalFiles: number;
     results: BatchResult[];
     logs: BatchLogEntry[];
     setFolderPath: (path: string | null) => void;
     setIsAnalyzing: (val: boolean) => void;
     setProgress: (val: number) => void;
     setCurrentFile: (val: string) => void;
+    setTotalFiles: (val: number) => void;
     setResults: React.Dispatch<React.SetStateAction<BatchResult[]>>;
     setLogs: React.Dispatch<React.SetStateAction<BatchLogEntry[]>>;
     addLog: (message: string, type?: "info" | "success" | "error") => void;
@@ -101,6 +104,7 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [batchIsAnalyzing, setBatchIsAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
   const [batchCurrentFile, setBatchCurrentFile] = useState("");
+  const [batchTotalFiles, setBatchTotalFiles] = useState(0);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
   const [batchLogs, setBatchLogs] = useState<BatchLogEntry[]>([]);
   const [batchCsvPath, setBatchCsvPath] = useState("");
@@ -138,7 +142,10 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const unlistenBatch = listen<ProgressEvent>("batch-progress", (event) => {
       setBatchProgress(event.payload.progress * 100);
       setBatchCurrentFile(event.payload.file);
-      
+      if (event.payload.total_files > 0) {
+        setBatchTotalFiles(event.payload.total_files);
+      }
+
       const fileName = event.payload.file.split(/[\\/]/).pop() || event.payload.file;
 
       if (event.payload.status === "Processing") {
@@ -148,7 +155,7 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (event.payload.result) {
           const [csvPart, summaryPart] = event.payload.result.split(";SUMMARY_DATA:");
           const parts = csvPart.split(";");
-          
+
           const newResult: BatchResult = {
             file: event.payload.file,
             time_ms: parts[0] || event.payload.time_ms?.toString() || "-",
@@ -165,7 +172,7 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           };
           setBatchResults((prev) => [...prev, newResult]);
         }
-      } else {
+      } else if (event.payload.status === "Error") {
         const errorText = event.payload.result || "Unknown error";
         const extractedMem = extractMemoryFromError(errorText);
         const newResult: BatchResult = {
@@ -183,6 +190,12 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           info: errorText.replace(/\r?\n|\r/g, " "),
         };
         setBatchResults((prev) => [...prev, newResult]);
+      } else {
+        // Generic backend notices (e.g. "Batch analysis stopped by user.",
+        // "File X analysis interrupted (stopped).") have no associated file
+        // — they're informational log lines, not a per-file result, so they
+        // must not be turned into a fake row in the results table.
+        addBatchLog(event.payload.result || "Batch analysis stopped by user.", "info");
       }
     });
 
@@ -213,12 +226,14 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isAnalyzing: batchIsAnalyzing,
       progress: batchProgress,
       currentFile: batchCurrentFile,
+      totalFiles: batchTotalFiles,
       results: batchResults,
       logs: batchLogs,
       setFolderPath: setBatchFolderPath,
       setIsAnalyzing: setBatchIsAnalyzing,
       setProgress: setBatchProgress,
       setCurrentFile: setBatchCurrentFile,
+      setTotalFiles: setBatchTotalFiles,
       setResults: setBatchResults,
       setLogs: setBatchLogs,
       addLog: addBatchLog,

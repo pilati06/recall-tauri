@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useAnalysisContext } from "../context/AnalysisContext";
@@ -66,6 +66,68 @@ export function AnalysisPage() {
   const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
+  // Tracks whether the mousedown that led to this click actually started on
+  // the overlay itself, so a text-selection drag that starts inside the
+  // dialog and is released outside doesn't get treated as a backdrop click.
+  const settingsOverlayMouseDownOnSelf = useRef(false);
+  // Highlighted "saved to" banner: shows the destination folder and file
+  // name separately, so it's unambiguous where the file actually landed.
+  const [saveNotice, setSaveNotice] = useState<{ folder: string; name: string; fullPath: string } | null>(null);
+
+  useEffect(() => {
+    if (!saveNotice) return;
+    const timer = setTimeout(() => setSaveNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [saveNotice]);
+
+  // Time-based progress estimate, same idea as the Batch Analysis page: a
+  // raw "processing..." message with no indication of how long it'll take
+  // isn't very reassuring. There's no batch of files to average here, so we
+  // instead remember how long previous runs took *on this same page during
+  // this session* and use that as the reference for the next run.
+  const runDurationsRef = useRef<number[]>([]);
+  const analysisStartRef = useRef<number | null>(null);
+  const runWasStoppedRef = useRef(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 250);
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
+
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const avgRunDurationMs = runDurationsRef.current.length > 0
+    ? runDurationsRef.current.reduce((a, b) => a + b, 0) / runDurationsRef.current.length
+    : 4000; // reasonable guess until the first run in this session finishes
+  const elapsedOnRunMs = isAnalyzing && analysisStartRef.current
+    ? Math.max(0, nowTick - analysisStartRef.current)
+    : 0;
+  // Same asymptotic curve as the batch page: reaches 50% at the average
+  // duration and keeps creeping forever without hitting 100% early, instead
+  // of a hard cap that gets reached (and then looks frozen) almost
+  // instantly for a contract much more complex than previous runs.
+  const runFraction = elapsedOnRunMs / (elapsedOnRunMs + avgRunDurationMs);
+  const isOutlierRun = elapsedOnRunMs > avgRunDurationMs * 2.5;
+  const smoothRunProgress = isAnalyzing ? Math.min(runFraction * 100, 99) : 0;
+  const runEtaLabel = isAnalyzing && !isOutlierRun && runDurationsRef.current.length > 0 && avgRunDurationMs > elapsedOnRunMs
+    ? formatDuration(avgRunDurationMs - elapsedOnRunMs)
+    : null;
+  const runElapsedLabel = isAnalyzing && elapsedOnRunMs > 0 ? formatDuration(elapsedOnRunMs) : null;
+
+  function showSaveNotice(path: string) {
+    const separatorIndex = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
+    const folder = separatorIndex >= 0 ? path.slice(0, separatorIndex) : "";
+    const name = separatorIndex >= 0 ? path.slice(separatorIndex + 1) : path;
+    setSaveNotice({ folder, name, fullPath: path });
+  }
 
   async function saveFileAs() {
     try {
@@ -81,6 +143,7 @@ export function AnalysisPage() {
         setIsVirtualPath(false);
         setOriginalContent(pastedText);
         setResultMsg(`File saved successfully.`);
+        showSaveNotice(selectedPath);
       }
     } catch (error) {
       console.error("Erro ao salvar arquivo:", error);
@@ -123,6 +186,7 @@ export function AnalysisPage() {
     // An empty contract is treated as trivial (no rules), so it's still valid to analyze
     // and should pass without conflicts — no need to block the user here.
     setIsAnalyzing(true);
+    analysisStartRef.current = Date.now();
     setResultMsg("Processing Contract...");
 
     try {
@@ -147,6 +211,13 @@ export function AnalysisPage() {
           setFilePath(fPath);
           // Now that it has a real file path returned from backend, it's no longer virtual
           setIsVirtualPath(false);
+          // The backend always returns FILES_PATH, but it only actually writes a NEW
+          // versioned .rcl file when the content changed since the last save (or there
+          // was none yet) — re-running analysis on unchanged content doesn't create a
+          // new file, so only show the banner when that's really the case here.
+          if (pastedText.trim() !== originalContent.trim()) {
+            showSaveNotice(fPath);
+          }
         }
       }
 
@@ -216,6 +287,12 @@ export function AnalysisPage() {
       });
       setResultMsg(errorStr || "An unknown error occurred during analysis.");
     } finally {
+      if (analysisStartRef.current && !runWasStoppedRef.current) {
+        const elapsed = Date.now() - analysisStartRef.current;
+        runDurationsRef.current = [...runDurationsRef.current, elapsed].slice(-20);
+      }
+      analysisStartRef.current = null;
+      runWasStoppedRef.current = false;
       setIsAnalyzing(false);
     }
   }
@@ -287,6 +364,9 @@ export function AnalysisPage() {
   };
 
   async function stopAnalysis() {
+    // A manually interrupted run isn't a real completion time, so it
+    // shouldn't be recorded into the duration history used for estimates.
+    runWasStoppedRef.current = true;
     try {
       await invoke("stop_analysis");
       setResultMsg("Analysis stopped by user.");
@@ -305,6 +385,7 @@ export function AnalysisPage() {
     setIsSymbolsExpanded(false);
     setIsLoadingSymbols(false);
     setIsVirtualPath(false);
+    setSaveNotice(null);
   }
 
   // Run is only allowed once the user has actually loaded a file or typed
@@ -461,8 +542,65 @@ export function AnalysisPage() {
             {isAnalyzing ? 'Stop Analysis' : 'Clear'}
           </button>
         </div>
+        {isAnalyzing && (
+          <div className="active-progress fade-in">
+            <div className="progress-header">
+              <div className="current-file-info">
+                <Loader2 size={16} className="spin" />
+                <span className="file-label">Analyzing contract...</span>
+                {runElapsedLabel && (
+                  <span className={`elapsed-label ${isOutlierRun ? 'outlier' : ''}`}>
+                    ({runElapsedLabel}{isOutlierRun ? ' — complex contract, still running' : ''})
+                  </span>
+                )}
+              </div>
+              <span className="percentage">
+                {Math.round(smoothRunProgress)}%
+                {runEtaLabel && <span className="eta-label"> · ~{runEtaLabel} left</span>}
+              </span>
+            </div>
+            <div className="progress-bar-outer">
+              <div className="progress-bar-inner shimmer" style={{ width: `${smoothRunProgress}%` }}>
+                <div className="progress-glow"></div>
+              </div>
+            </div>
+          </div>
+        )}
+        {saveNotice && (
+          <div className="save-notice fade-in">
+            <CheckCircle2 size={18} className="save-notice-icon" />
+            <div className="save-notice-text">
+              <span className="save-notice-title">File saved</span>
+              <span className="save-notice-detail">
+                Folder: <strong>{saveNotice.folder || "—"}</strong>
+              </span>
+              <span className="save-notice-detail">
+                File name: <strong>{saveNotice.name}</strong>
+              </span>
+            </div>
+            <button
+              className="save-notice-action"
+              onClick={() => revealItemInDir(saveNotice.fullPath)}
+              title="Show in Folder"
+            >
+              <FolderOpen size={16} />
+              <span>Show in Folder</span>
+            </button>
+            <button
+              className="save-notice-close"
+              onClick={() => setSaveNotice(null)}
+              title="Dismiss"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
         {showSettings && (
-          <div className="settings-overlay fade-in" onClick={() => setShowSettings(false)}>
+          <div
+            className="settings-overlay fade-in"
+            onMouseDown={(e) => { settingsOverlayMouseDownOnSelf.current = e.target === e.currentTarget; }}
+            onClick={() => { if (settingsOverlayMouseDownOnSelf.current) setShowSettings(false); }}
+          >
             <div className="settings-dialog pop-in" onClick={e => e.stopPropagation()}>
               <div className="settings-header">
                 <div className="title-with-icon">
@@ -933,7 +1071,133 @@ export function AnalysisPage() {
           background: rgba(248, 113, 113, 0.1);
           border-color: rgba(248, 113, 113, 0.2);
         }
-        
+
+        .save-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 0.9rem 1rem;
+          background: rgba(34, 197, 94, 0.08);
+          border: 1px solid rgba(34, 197, 94, 0.25);
+          border-radius: 12px;
+          text-align: left;
+        }
+        .save-notice-icon {
+          color: #4ade80;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+        .save-notice-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+        }
+        .save-notice-title {
+          font-weight: 700;
+          font-size: 0.9rem;
+          color: #4ade80;
+        }
+        .save-notice-detail {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          word-break: break-all;
+        }
+        .save-notice-detail strong {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
+        .save-notice-action {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.5rem 0.9rem;
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          border-radius: 8px;
+          color: #4ade80;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .save-notice-action:hover {
+          background: rgba(34, 197, 94, 0.2);
+        }
+        .save-notice-close {
+          background: transparent;
+          border: none;
+          color: rgba(var(--ink-rgb), 0.4);
+          cursor: pointer;
+          padding: 0.25rem;
+          border-radius: 50%;
+          display: flex;
+          flex-shrink: 0;
+        }
+        .save-notice-close:hover {
+          background: rgba(var(--ink-rgb), 0.08);
+          color: var(--text-primary);
+        }
+
+        .active-progress {
+          background: var(--bg-slate-3);
+          padding: 1.25rem;
+          border-radius: 12px;
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
+          text-align: left;
+        }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+        .current-file-info { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+        .file-label { color: var(--text-secondary); font-size: 0.9rem; }
+        .percentage { font-weight: 700; font-size: 0.9rem; }
+        .eta-label { color: var(--text-muted); font-weight: 500; font-size: 0.8rem; }
+        .elapsed-label { color: var(--text-muted); font-weight: 500; font-size: 0.8rem; margin-left: 0.2rem; }
+        .elapsed-label.outlier { color: #fbbf24; font-weight: 600; }
+        .progress-bar-outer { height: 14px; background: rgba(0, 0, 0, 0.4); border-radius: 99px; overflow: hidden; position: relative; border: 1px solid rgba(var(--ink-rgb), 0.05); }
+        .progress-bar-inner {
+          height: 100%;
+          background: linear-gradient(90deg, #6a64d8ff 0%, #06b6d4 50%, #429b63ff 100%);
+          transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+        }
+        .progress-bar-inner.shimmer {
+          position: relative;
+        }
+        .progress-bar-inner.shimmer::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-image: linear-gradient(
+            45deg,
+            rgba(var(--ink-rgb), 0.2) 25%,
+            transparent 25%,
+            transparent 50%,
+            rgba(var(--ink-rgb), 0.2) 50%,
+            rgba(var(--ink-rgb), 0.2) 75%,
+            transparent 75%,
+            transparent
+          );
+          background-size: 40px 40px;
+          animation: progress-shimmer 1s linear infinite;
+        }
+        .progress-glow {
+          position: absolute;
+          right: 0;
+          top: 0;
+          height: 100%;
+          width: 20px;
+          background: white;
+          filter: blur(8px);
+          opacity: 0.4;
+        }
+        @keyframes progress-shimmer {
+          from { background-position: 40px 0; }
+          to { background-position: 0 0; }
+        }
+
         .section-header {
           display: flex;
           align-items: center;
