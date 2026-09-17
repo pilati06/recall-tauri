@@ -51,9 +51,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut input_string = String::new();
     use std::io::Read;
     file.read_to_string(&mut input_string)?;
-    let mut pairs = RCLParser::parse(Rule::main, &input_string)?;
+    // Report parsing/AST-build failures with their own Display formatting
+    // instead of letting them bubble up through `?` to main's default error
+    // reporter, which prints the raw Debug representation of the error
+    // (an unreadable struct dump for pest errors) rather than pest's own
+    // human-friendly rendering — a caret pointing at the exact line/column
+    // where the input stopped matching the grammar, plus what was expected
+    // there. The pointed-at spot isn't always the root cause (a mismatched
+    // earlier token can cascade into a failure much further down), but it's
+    // still a concrete starting point instead of a generic "syntax error".
+    let mut pairs = match RCLParser::parse(Rule::main, &input_string) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Contract syntax error - the parser could not continue past this point:\n\n{}", e);
+            std::process::exit(1);
+        }
+    };
     let main_pair = pairs.next().unwrap();
-    let contract: Contract = build_ast(main_pair)?;
+    let contract: Contract = match build_ast(main_pair) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Contract syntax error - the parser could not continue past this point:\n\n{}", e);
+            std::process::exit(1);
+        }
+    };
 
     analyzer_logger.log(LogType::Necessary, &format!("Loaded Contract: \n{}", contract));
 

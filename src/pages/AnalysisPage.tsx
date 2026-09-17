@@ -21,9 +21,12 @@ import {
   X,
   ShieldCheck,
   ZapOff,
-  Save
+  Save,
+  BookOpen,
+  ClipboardCopy
 } from "lucide-react";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { GRAMMAR_SYMBOLS } from "../data/grammarSymbols";
 
 interface SymbolEntry {
   id: string;
@@ -65,11 +68,14 @@ export function AnalysisPage() {
   const [usePruning, setUsePruning] = useState(true);
   const [maxConcurrentActions, setMaxConcurrentActions] = useState<number | "">(30);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSymbolsHelp, setShowSymbolsHelp] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Tracks whether the mousedown that led to this click actually started on
   // the overlay itself, so a text-selection drag that starts inside the
   // dialog and is released outside doesn't get treated as a backdrop click.
   const settingsOverlayMouseDownOnSelf = useRef(false);
+  const symbolsOverlayMouseDownOnSelf = useRef(false);
   // Highlighted "saved to" banner: shows the destination folder and file
   // name separately, so it's unambiguous where the file actually landed.
   const [saveNotice, setSaveNotice] = useState<{ folder: string; name: string; fullPath: string } | null>(null);
@@ -121,6 +127,26 @@ export function AnalysisPage() {
     ? formatDuration(avgRunDurationMs - elapsedOnRunMs)
     : null;
   const runElapsedLabel = isAnalyzing && elapsedOnRunMs > 0 ? formatDuration(elapsedOnRunMs) : null;
+
+  // Inserts a grammar snippet at the current cursor position (replacing any
+  // selection), then restores focus and places the cursor right after it —
+  // so picking several symbols in a row from the reference panel works like
+  // a normal editor, without needing to click back into the textarea each time.
+  function insertSymbol(snippet: string) {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? pastedText.length;
+    const end = el?.selectionEnd ?? pastedText.length;
+    const newText = pastedText.slice(0, start) + snippet + pastedText.slice(end);
+    setPastedText(newText);
+    setIsVirtualPath(false);
+    setParsedResult(null);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      const cursor = start + snippet.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  }
 
   function showSaveNotice(path: string) {
     const separatorIndex = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
@@ -412,28 +438,49 @@ export function AnalysisPage() {
           <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
             {(filePath && !isVirtualPath) ? `${filePath.split(/[\\/]/).pop()}${pastedText.trim() !== originalContent.trim() ? '*' : ''}` : 'Contract'}
           </h3>
-          <button 
-            className="settings-toggle-btn"
-            onClick={() => setShowSettings(true)}
-            disabled={isAnalyzing}
-            title="Analysis Settings"
-            style={{ 
-              background: 'rgba(var(--ink-rgb), 0.05)',
-              border: '1px solid rgba(var(--ink-rgb), 0.1)',
-              borderRadius: '8px',
-              padding: '0.5rem',
-              cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-              opacity: isAnalyzing ? 0.5 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <Settings size={20} />
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              className="settings-toggle-btn"
+              onClick={() => setShowSymbolsHelp(true)}
+              title="Grammar Symbols Reference"
+              style={{
+                background: 'rgba(var(--ink-rgb), 0.05)',
+                border: '1px solid rgba(var(--ink-rgb), 0.1)',
+                borderRadius: '8px',
+                padding: '0.5rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)'
+              }}
+            >
+              <BookOpen size={20} />
+            </button>
+            <button
+              className="settings-toggle-btn"
+              onClick={() => setShowSettings(true)}
+              disabled={isAnalyzing}
+              title="Analysis Settings"
+              style={{
+                background: 'rgba(var(--ink-rgb), 0.05)',
+                border: '1px solid rgba(var(--ink-rgb), 0.1)',
+                borderRadius: '8px',
+                padding: '0.5rem',
+                cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                opacity: isAnalyzing ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)'
+              }}
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </div>
         <textarea
+          ref={textareaRef}
           placeholder={
             (filePath && !isVirtualPath)
               ? "Empty file loaded. This is a valid, trivial contract (no rules) and will pass without conflicts."
@@ -743,8 +790,63 @@ export function AnalysisPage() {
           </div>
         )}
 
+        {showSymbolsHelp && (
+          <div
+            className="settings-overlay fade-in"
+            onMouseDown={(e) => { symbolsOverlayMouseDownOnSelf.current = e.target === e.currentTarget; }}
+            onClick={() => { if (symbolsOverlayMouseDownOnSelf.current) setShowSymbolsHelp(false); }}
+          >
+            <div className="settings-dialog symbols-dialog pop-in" onClick={e => e.stopPropagation()}>
+              <div className="settings-header">
+                <div className="title-with-icon">
+                  <BookOpen size={20} className="icon-purple" />
+                  <h3>Grammar Symbols Reference</h3>
+                </div>
+                <button className="close-dialog-btn" onClick={() => setShowSymbolsHelp(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="settings-content symbols-help-content">
+                <p className="section-desc" style={{ marginBottom: '0.5rem' }}>
+                  Click "Insert" to add a symbol at the cursor position in the editor.
+                </p>
+                {GRAMMAR_SYMBOLS.map((group) => (
+                  <div className="settings-section" key={group.category}>
+                    <h4>{group.category}</h4>
+                    <div className="symbols-help-list">
+                      {group.items.map((item) => (
+                        <div className="symbol-help-item" key={item.name}>
+                          <div className="symbol-help-main">
+                            <code className="symbol-help-code">{item.symbol}</code>
+                            <span className="symbol-help-name">{item.name}</span>
+                          </div>
+                          <p className="symbol-help-desc">{item.description}</p>
+                          <button
+                            className="symbol-help-insert-btn"
+                            onClick={() => { insertSymbol(item.snippet); setShowSymbolsHelp(false); }}
+                          >
+                            <ClipboardCopy size={14} />
+                            <span>Insert</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="settings-footer">
+                <button className="apply-btn" onClick={() => setShowSymbolsHelp(false)}>
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
-      
+
       <div className="section-header">
         <FileText size={20} />
         <h2>Result</h2>
@@ -1665,6 +1767,88 @@ export function AnalysisPage() {
           transform: rotate(45deg);
         }
         .custom-checkbox input:checked ~ .checkmark:after { display: block; }
+
+        .symbols-dialog {
+          max-width: 620px;
+        }
+
+        .symbols-help-content {
+          gap: 1.5rem;
+        }
+
+        .symbols-help-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+
+        .symbol-help-item {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          align-items: center;
+          column-gap: 1rem;
+          row-gap: 0.35rem;
+          padding: 0.85rem 1rem;
+          border-radius: 10px;
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
+        }
+
+        .symbol-help-main {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          flex-wrap: wrap;
+          grid-column: 1;
+        }
+
+        .symbol-help-code {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #a855f7;
+          background: rgba(168, 85, 247, 0.1);
+          padding: 0.15rem 0.5rem;
+          border-radius: 6px;
+        }
+
+        .symbol-help-name {
+          font-weight: 600;
+          font-size: 0.9rem;
+        }
+
+        .symbol-help-desc {
+          grid-column: 1;
+          margin: 0;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          line-height: 1.4;
+        }
+
+        .symbol-help-insert-btn {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+          align-self: center;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.5rem 0.9rem;
+          background: rgba(99, 102, 241, 0.1);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          border-radius: 8px;
+          color: #818cf8;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+        }
+
+        .symbol-help-insert-btn:hover {
+          background: rgba(99, 102, 241, 0.2);
+          color: #a5b4fc;
+        }
 
         .pop-in {
           animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

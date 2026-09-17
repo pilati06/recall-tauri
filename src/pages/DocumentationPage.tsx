@@ -1,4 +1,5 @@
-import { Code, FileText, Info } from "lucide-react";
+import { Code, FileText, Info, BookOpen } from "lucide-react";
+import { GRAMMAR_SYMBOLS } from "../data/grammarSymbols";
 
 export function DocumentationPage() {
   return (
@@ -68,6 +69,31 @@ conflict{
         </div>
       </div>
 
+      <div className="doc-section">
+        <h2><BookOpen size={24} className="doc-icon" /> RCL Grammar &amp; Symbols Reference</h2>
+        <p>
+          This is the full list of symbols and keywords defined by the RCL grammar, grouped by purpose.
+          The same reference is available directly in the editor: open the <strong>Analysis</strong> tab
+          and click the book icon next to the contract editor to insert any of these symbols at the cursor.
+        </p>
+        {GRAMMAR_SYMBOLS.map((group) => (
+          <div className="grammar-group" key={group.category}>
+            <h3>{group.category}</h3>
+            <div className="grammar-list">
+              {group.items.map((item) => (
+                <div className="grammar-item" key={item.name}>
+                  <code className="grammar-code">{item.symbol}</code>
+                  <div className="grammar-item-text">
+                    <span className="grammar-item-name">{item.name}</span>
+                    <p className="grammar-item-desc">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* <div className="doc-section">
         <h2><BookOpen size={24} className="doc-icon" /> Advanced Features</h2>
         <ul>
@@ -130,6 +156,60 @@ conflict{
           margin-top: 0;
           color: var(--text-primary);
         }
+        .grammar-group {
+          margin-bottom: 1.75rem;
+        }
+        .grammar-group:last-child {
+          margin-bottom: 0;
+        }
+        .grammar-group h3 {
+          margin: 0 0 0.75rem 0;
+          font-size: 0.95rem;
+          color: #a855f7;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .grammar-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+        .grammar-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 1rem;
+          padding: 0.85rem 1rem;
+          border-radius: 10px;
+          background: rgba(var(--ink-rgb), 0.03);
+          border: 1px solid rgba(var(--ink-rgb), 0.05);
+        }
+        .grammar-code {
+          font-family: 'Fira Code', 'JetBrains Mono', monospace;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #a855f7;
+          background: rgba(168, 85, 247, 0.1);
+          padding: 0.3rem 0.6rem;
+          border-radius: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .grammar-item-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+        .grammar-item-name {
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: var(--text-primary);
+        }
+        .grammar-item-desc {
+          margin: 0;
+          font-size: 0.82rem;
+          color: var(--text-secondary);
+          line-height: 1.4;
+        }
         .documentation-page ul {
           line-height: 1.8;
           color: rgba(var(--ink-rgb), 0.8);
@@ -158,6 +238,10 @@ conflict{
           .code-block {
             padding: 1rem;
             font-size: 0.8rem;
+          }
+          .grammar-item {
+            flex-direction: column;
+            gap: 0.5rem;
           }
         }
       `}</style>
